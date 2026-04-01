@@ -21,6 +21,7 @@ Deployed as a Hugging Face Space (Docker) and validated via ``openenv validate``
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import defaultdict
@@ -34,7 +35,7 @@ from pydantic import BaseModel, Field
 from config import settings
 from env import SentinelOpsEnvironment
 from grader import grade
-from models import Action, ResetResponse, StepResponse, StateResponse
+from models import Action, Observation, EpisodeState, ResetResponse, StepResponse, StateResponse
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -155,6 +156,119 @@ async def root():
         "health": "/health",
         "metrics": "/metrics",
     }
+
+
+@app.get("/metadata", tags=["openenv"])
+async def metadata():
+    """
+    Return environment metadata (name, description, version).
+
+    Required by the OpenEnv standard for environment discovery.
+    """
+    return {
+        "name": "sentinelops",
+        "description": (
+            "SentinelOps is a multi-step agentic reinforcement-learning environment "
+            "that simulates an AI security analyst monitoring surveillance camera feeds. "
+            "The agent must inspect frames, navigate temporal sequences, switch between "
+            "cameras, detect anomalies, classify threat severity, and decide whether "
+            "to escalate incidents or dismiss false alarms."
+        ),
+        "version": "1.0.0",
+        "author": "Team Adaptrix",
+        "license": "MIT",
+        "tags": [
+            "surveillance", "incident-response", "multi-step",
+            "agentic", "reinforcement-learning", "security",
+        ],
+    }
+
+
+@app.get("/schema", tags=["openenv"])
+async def schema():
+    """
+    Return JSON schemas for the environment's action, observation, and state.
+
+    Required by OpenEnv for agent integration and validation.
+    """
+    return {
+        "action": Action.model_json_schema(),
+        "observation": Observation.model_json_schema(),
+        "state": EpisodeState.model_json_schema(),
+    }
+
+
+@app.post("/mcp", tags=["openenv"])
+async def mcp_endpoint(request: Request):
+    """
+    Minimal MCP (Model Context Protocol) JSON-RPC 2.0 endpoint.
+
+    Supports method discovery and basic ping for OpenEnv validation.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None},
+        )
+
+    rpc_id = body.get("id")
+    method = body.get("method", "")
+
+    # Method dispatch
+    if method == "initialize":
+        result = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": "sentinelops", "version": "1.0.0"},
+        }
+    elif method == "tools/list":
+        result = {
+            "tools": [
+                {
+                    "name": "reset",
+                    "description": "Start or restart an episode",
+                    "inputSchema": {"type": "object", "properties": {"task_id": {"type": "string"}}},
+                },
+                {
+                    "name": "step",
+                    "description": "Submit an agent action",
+                    "inputSchema": Action.model_json_schema(),
+                },
+                {
+                    "name": "state",
+                    "description": "Get current episode state",
+                    "inputSchema": {"type": "object", "properties": {}},
+                },
+            ]
+        }
+    elif method == "tools/call":
+        tool_name = (body.get("params") or {}).get("name", "")
+        tool_args = (body.get("params") or {}).get("arguments", {})
+        try:
+            if tool_name == "reset":
+                obs, info = _env.reset(task_id=tool_args.get("task_id"))
+                result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "info": info})}]}
+            elif tool_name == "step":
+                action = Action(**tool_args)
+                obs, reward, terminated, truncated, info = _env.step(action)
+                result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "reward": reward, "terminated": terminated, "truncated": truncated, "info": info})}]}
+            elif tool_name == "state":
+                state = _env.state()
+                result = {"content": [{"type": "text", "text": json.dumps(state.model_dump())}]}
+            else:
+                return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}, "id": rpc_id})
+        except Exception as exc:
+            return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32000, "message": str(exc)}, "id": rpc_id})
+    elif method == "ping":
+        result = {}
+    else:
+        return JSONResponse(
+            content={"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Method not found: {method}"}, "id": rpc_id},
+        )
+
+    return JSONResponse(content={"jsonrpc": "2.0", "result": result, "id": rpc_id})
 
 
 # ---------------------------------------------------------------------------
@@ -369,3 +483,22 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": f"Internal server error: {exc}"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def main():
+    """Launch the server (used by project.scripts entry point)."""
+    import uvicorn
+    uvicorn.run(
+        "server.app:app",
+        host="0.0.0.0",
+        port=7860,
+        workers=1,
+    )
+
+
+if __name__ == "__main__":
+    main()
