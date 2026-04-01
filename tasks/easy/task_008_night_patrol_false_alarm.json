@@ -1,0 +1,35 @@
+{
+  "task_id": "easy-008-night-patrol-false-alarm",
+  "difficulty": "easy",
+  "title": "Night Security Patrol — False Alarm",
+  "description": "An automated motion alert triggers on CAM-03. The agent must inspect the corridor frames, identify that the figure is an authorised security guard in uniform doing routine rounds, correctly classify as safe, and dismiss the alert without escalating.",
+  "camera_ids": ["cam-03"],
+  "correct_camera": "cam-03",
+  "correct_risk_level": "safe",
+  "should_escalate": false,
+  "anomaly_start_frame": 0,
+  "total_frames": 2,
+  "optimal_steps": 3,
+  "max_steps": 8,
+  "tags": ["single-camera", "false-alarm", "security-patrol", "corridor", "dismiss"],
+  "frames": [
+    {
+      "frame_id": "easy-008-f0",
+      "camera_id": "cam-03",
+      "description": "Building corridor at night. A uniformed security guard with a visible badge and torch is walking the hallway, checking doors. This is a scheduled patrol route. No threat present.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-02T03:15:00Z"
+    },
+    {
+      "frame_id": "easy-008-f1",
+      "camera_id": "cam-03",
+      "description": "Same corridor. The uniformed guard is now near the end of the hallway, jotting notes on a clipboard. ID badge clearly visible on lanyard. Authorised personnel performing routine duties.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-02T03:16:10Z"
+    }
+  ]
+}

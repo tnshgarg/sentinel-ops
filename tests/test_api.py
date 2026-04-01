@@ -251,7 +251,7 @@ class TestTasksEndpoint:
         assert resp.status_code == 200
         tasks = resp.json()
         assert isinstance(tasks, list)
-        assert len(tasks) >= 6
+        assert len(tasks) >= 12
         for task in tasks:
             assert "task_id" in task
             assert "difficulty" in task

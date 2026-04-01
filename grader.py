@@ -103,13 +103,7 @@ class EasyGrader(BaseGrader):
             breakdown["frame_inspection"] = 0.0
 
         # 2. Did the agent navigate to / stay on a frame with an anomaly?
-        anomaly_frames = {f.frame_id for f in gt.frames if f.anomaly_present}
-        inspected_anomaly = any(
-            h.get("action_type") == ActionType.INSPECT_CURRENT_FRAME
-            for h in state.action_history
-            # We also check frames_inspected which tracks camera:idx keys
-        )
-        # Check via frames_inspected set
+        # Check via frames_inspected which tracks "camera_id:frame_idx" keys
         anomaly_detected = False
         for key in state.frames_inspected:
             cam, idx_str = key.split(":")

@@ -145,7 +145,7 @@ class EnvClient:
 SYSTEM_PROMPT = """You are SentinelOps Agent — an elite AI security analyst operating a multi-camera surveillance control room.
 
 Your mission is to:
-1. Inspect surveillance frames for anomalies
+1. Inspect surveillance frames for anomalies (examine the actual image carefully)
 2. Navigate between frames and cameras to track threats
 3. Classify the risk level of any detected anomaly
 4. Decide whether to escalate the incident or dismiss the alert
@@ -168,14 +168,16 @@ Examples:
 {"action": "switch_camera", "payload": "cam-02", "reasoning": "Suspect may have moved to the warehouse area."}
 {"action": "classify_risk", "payload": "dangerous", "reasoning": "Person is breaking into a vehicle — clear criminal activity."}
 {"action": "escalate_incident", "payload": null, "reasoning": "Confirmed break-in requires immediate police response."}
+{"action": "dismiss_alert", "payload": null, "reasoning": "Authorised personnel conducting scheduled maintenance — no threat."}
 
-STRATEGY:
-- Always inspect the current frame first before making decisions
-- Use temporal navigation to understand how the situation evolved
-- In multi-camera scenarios, switch to track suspects across areas
-- Only escalate when you have strong evidence of a real threat
-- Dismiss only when confident there is no genuine threat
-- Be efficient — fewer steps is better
+DECISION RULES (follow strictly):
+1. Inspect the current frame first on every new camera or after navigating to a new frame.
+2. In multi-camera tasks, switch cameras to track the subject before classifying risk.
+3. Once you have inspected at least one anomaly frame, classify_risk IMMEDIATELY — do not keep navigating.
+4. After classifying risk, your VERY NEXT action must be either escalate_incident or dismiss_alert.
+5. Never repeat the same action twice in a row — this wastes steps and incurs penalties.
+6. If the scene shows authorised personnel (badges, uniforms, work orders), classify as "safe" and dismiss.
+7. Be decisive — fewer steps earn a speed bonus. Do not gather more evidence than necessary.
 """
 
 
@@ -307,10 +309,9 @@ def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> List[D
 
     text_prompt = "\n".join(parts)
 
-    # When ENABLE_VISION is true and a vision-capable model is used,
-    # build multimodal content list with the frame image attached.
-    # Otherwise, return text-only (compatible with all text LLMs).
-    enable_vision = os.environ.get("ENABLE_VISION", "false").lower() == "true"
+    # Build multimodal content with the frame image by default.
+    # Set ENABLE_VISION=false to fall back to text-only (non-vision models).
+    enable_vision = os.environ.get("ENABLE_VISION", "true").lower() == "true"
 
     if enable_vision:
         user_content: List[Dict[str, Any]] = [
@@ -427,6 +428,49 @@ def run_episode(
             step_result = env.step("escalate_incident")
             terminated = step_result.get("terminated", True)
             break
+
+        # --- Loop detection: force a terminal decision if agent is stuck ---
+        if len(messages) >= 7:  # at least 3 prior turns (system + 3×user+assistant pairs)
+            recent_actions = [
+                m["content"] for m in messages
+                if m["role"] == "assistant"
+            ][-3:]
+            if len(recent_actions) == 3:
+                parsed_recent = [parse_agent_response(a) for a in recent_actions]
+                recent_types = [p.get("action", "") for p in parsed_recent]
+                # If last 3 actions are identical, force a decision
+                if len(set(recent_types)) == 1:
+                    logger.warning(
+                        "Loop detected: agent repeated '%s' 3 times. "
+                        "Injecting decision-forcing prompt.",
+                        recent_types[0],
+                    )
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "ALERT: You have repeated the same action 3 times. "
+                            "You MUST now make a final decision. "
+                            "First respond with classify_risk:<level>, then on the very next turn "
+                            "use escalate_incident or dismiss_alert. No more exploration."
+                        ),
+                    })
+                    agent_text, active_model = call_llm_with_fallback(messages, MODEL_CHAIN)
+                    messages.append({"role": "assistant", "content": agent_text})
+                    parsed = parse_agent_response(agent_text)
+                    action_type, payload = extract_action_and_payload(parsed)
+                    try:
+                        step_result = env.step(action_type, payload=payload)
+                    except Exception:
+                        step_result = env.step("escalate_incident")
+                    obs_data = step_result["observation"]
+                    reward = step_result["reward"]
+                    terminated = step_result["terminated"]
+                    truncated = step_result["truncated"]
+                    info = step_result.get("info", {})
+                    step += 1
+                    if terminated or truncated:
+                        break
+                    continue
 
         # Build observation content (text-only or multimodal depending on ENABLE_VISION)
         user_content = build_user_content(obs_data, info)
