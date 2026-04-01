@@ -1,0 +1,71 @@
+{
+  "task_id": "hard-006-false-alarm-discrimination",
+  "difficulty": "hard",
+  "title": "False Alarm Discrimination Under Pressure",
+  "description": "Multiple cameras trigger simultaneously. Most alerts are benign (maintenance worker on CAM-01, delivery on CAM-04). One real threat exists on CAM-02. Agent must investigate all, avoid false positives, identify the real threat, and escalate only the genuine incident.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03", "cam-04"],
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 3,
+  "total_frames": 6,
+  "optimal_steps": 8,
+  "max_steps": 15,
+  "tags": ["multi-camera", "false-positive-avoidance", "discrimination", "pressure"],
+  "frames": [
+    {
+      "frame_id": "hard-006-f0",
+      "camera_id": "cam-01",
+      "description": "Parking lot. A worker in a reflective vest is checking vehicles with a clipboard. Normal maintenance rounds. No threat.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:00:00Z"
+    },
+    {
+      "frame_id": "hard-006-f1",
+      "camera_id": "cam-04",
+      "description": "Building lobby. A delivery person is dropping off packages at the security desk. ID badge visible. Normal delivery activity.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:00:15Z"
+    },
+    {
+      "frame_id": "hard-006-f2",
+      "camera_id": "cam-03",
+      "description": "Corridor. Empty. Lights functioning normally. No activity detected.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:00:30Z"
+    },
+    {
+      "frame_id": "hard-006-f3",
+      "camera_id": "cam-02",
+      "description": "Warehouse. A person without safety gear is accessing the restricted chemical storage area. No ID badge visible. The area should be locked after hours.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorized-hazmat-access",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-15T03:01:00Z"
+    },
+    {
+      "frame_id": "hard-006-f4",
+      "camera_id": "cam-02",
+      "description": "Warehouse. The person is now handling chemical containers without protective equipment. Potential safety violation and security breach.",
+      "anomaly_present": true,
+      "anomaly_type": "safety-violation",
+      "anomaly_region": "center-right",
+      "timestamp": "2024-03-15T03:02:00Z"
+    },
+    {
+      "frame_id": "hard-006-f5",
+      "camera_id": "cam-01",
+      "description": "Parking lot. The maintenance worker from earlier has completed rounds and is walking back to the office building. Normal activity continues.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:02:30Z"
+    }
+  ]
+}

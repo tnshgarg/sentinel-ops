@@ -1,0 +1,95 @@
+# SentinelOps — OpenEnv Environment Manifest
+# This file defines the environment for the Meta × Scaler OpenEnv hackathon.
+
+name: sentinelops
+version: "1.0.0"
+description: >
+  SentinelOps is a multi-step agentic reinforcement-learning environment
+  that simulates an AI security analyst monitoring surveillance camera feeds.
+  The agent must inspect frames, navigate temporal sequences, switch between
+  cameras, detect anomalies, classify threat severity, and decide whether
+  to escalate incidents or dismiss false alarms.
+
+author: SentinelOps Team
+license: MIT
+
+# Environment interface
+interface:
+  type: http
+  endpoints:
+    reset: POST /reset
+    step: POST /step
+    state: GET /state
+
+# Action space
+action_space:
+  type: discrete
+  actions:
+    - inspect_current_frame
+    - request_previous_frame
+    - request_next_frame
+    - switch_camera
+    - zoom_region
+    - classify_risk
+    - escalate_incident
+    - dismiss_alert
+
+# Observation space
+observation_space:
+  type: dict
+  fields:
+    task_id: string
+    step: integer
+    camera_id: string
+    frame_b64: string
+    context: string
+    available_actions: list[string]
+    alert_level: string
+
+# Reward specification
+reward:
+  type: shaped
+  range: [-1.0, 1.0]
+  delayed: true
+  accumulation: trajectory
+
+# Episode configuration
+episode:
+  min_steps: 3
+  max_steps: 15
+  timeout_minutes: 20
+
+# Task difficulty tiers
+difficulty_tiers:
+  - name: easy
+    description: Single camera anomaly detection
+    tasks: 2
+  - name: medium
+    description: Multi-frame temporal reasoning
+    tasks: 2
+  - name: hard
+    description: Multi-camera coordinated incidents
+    tasks: 2
+
+# Deployment
+deployment:
+  platform: huggingface_spaces
+  sdk: docker
+  port: 7860
+  health_check: GET /health
+
+# Grading
+grading:
+  method: deterministic_rubric
+  llm_as_judge: false
+  reproducibility_variance: "<2%"
+
+# Tags
+tags:
+  - surveillance
+  - incident-response
+  - multi-step
+  - agentic
+  - reinforcement-learning
+  - computer-vision
+  - security

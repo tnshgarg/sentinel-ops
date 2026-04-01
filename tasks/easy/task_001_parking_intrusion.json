@@ -1,0 +1,44 @@
+{
+  "task_id": "easy-001-parking-intrusion",
+  "difficulty": "easy",
+  "title": "Parking Lot Vehicle Break-In",
+  "description": "An alert triggers on CAM-01 showing the parking lot. The agent must inspect the frame, detect the person tampering with a vehicle, classify the risk, and escalate.",
+  "camera_ids": ["cam-01"],
+  "correct_camera": "cam-01",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 3,
+  "optimal_steps": 3,
+  "max_steps": 8,
+  "tags": ["single-camera", "vehicle-tampering", "parking-lot"],
+  "frames": [
+    {
+      "frame_id": "easy-001-f0",
+      "camera_id": "cam-01",
+      "description": "Parking lot at night. Several cars parked. One person walking near entrance. No anomaly visible.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T02:14:33Z"
+    },
+    {
+      "frame_id": "easy-001-f1",
+      "camera_id": "cam-01",
+      "description": "Parking lot at night. A person is attempting to break into a vehicle near the entrance using a tool. Car alarm lights are flashing.",
+      "anomaly_present": true,
+      "anomaly_type": "vehicle-tampering",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-15T02:16:45Z"
+    },
+    {
+      "frame_id": "easy-001-f2",
+      "camera_id": "cam-01",
+      "description": "Parking lot at night. The suspect has opened the vehicle door and is reaching inside. Car alarm lights visible.",
+      "anomaly_present": true,
+      "anomaly_type": "vehicle-break-in",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-15T02:17:12Z"
+    }
+  ]
+}
