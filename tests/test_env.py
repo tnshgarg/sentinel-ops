@@ -244,7 +244,7 @@ class TestTaskFactory:
 
     def test_load_all(self):
         tasks = TaskFactory.load_all()
-        assert len(tasks) >= 6, f"Expected at least 6 tasks, got {len(tasks)}"
+        assert len(tasks) >= 12, f"Expected at least 12 tasks, got {len(tasks)}"
 
     def test_load_by_difficulty(self):
         for diff in TaskDifficulty:

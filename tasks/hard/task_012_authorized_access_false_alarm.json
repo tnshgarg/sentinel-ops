@@ -1,0 +1,71 @@
+{
+  "task_id": "hard-012-authorized-access-false-alarm",
+  "difficulty": "hard",
+  "title": "Complex False Alarm — All Cameras Show Authorised Activity",
+  "description": "Multiple cameras trigger simultaneously during a planned after-hours maintenance window. CAM-01 shows the facilities crew in the parking lot, CAM-04 shows the building manager escorting contractors, CAM-03 shows IT staff running cables in the corridor, and CAM-02 shows authorised maintenance in the warehouse. The agent must investigate all feeds systematically, recognise the authorised patterns, avoid false escalation, and correctly dismiss the alert.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03", "cam-04"],
+  "correct_camera": "cam-01",
+  "correct_risk_level": "safe",
+  "should_escalate": false,
+  "anomaly_start_frame": 0,
+  "total_frames": 6,
+  "optimal_steps": 9,
+  "max_steps": 15,
+  "tags": ["multi-camera", "false-alarm", "authorized-maintenance", "dismiss", "discrimination"],
+  "frames": [
+    {
+      "frame_id": "hard-012-f0",
+      "camera_id": "cam-01",
+      "description": "Parking lot. A facilities crew van with company markings is parked near the service entrance. Workers in high-visibility vests are unloading equipment with work orders visible on clipboards. Scheduled maintenance.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:00:00Z"
+    },
+    {
+      "frame_id": "hard-012-f1",
+      "camera_id": "cam-04",
+      "description": "Building lobby. The building manager (ID badge visible) is escorting two contractors through the lobby security check. All three are signing the visitor log at the security desk. Fully authorised entry procedure.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:02:00Z"
+    },
+    {
+      "frame_id": "hard-012-f2",
+      "camera_id": "cam-03",
+      "description": "Corridor. Two IT staff members in company polo shirts with visible employee badges are running Ethernet cables along the ceiling conduit. A maintenance notice is posted on the wall. Authorised scheduled work.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:05:00Z"
+    },
+    {
+      "frame_id": "hard-012-f3",
+      "camera_id": "cam-02",
+      "description": "Warehouse. A forklift operator in safety gear is conducting inventory relocation as part of a scheduled warehouse reorganisation. Work order is posted on the nearby wall. All activity is authorised and documented.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:08:00Z"
+    },
+    {
+      "frame_id": "hard-012-f4",
+      "camera_id": "cam-03",
+      "description": "Corridor. The IT staff have progressed further down the corridor. All cable work is neat and professional. The maintenance notice confirms this was pre-approved by facilities management.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:12:00Z"
+    },
+    {
+      "frame_id": "hard-012-f5",
+      "camera_id": "cam-01",
+      "description": "Parking lot. The facilities crew has finished unloading. All personnel are accounted for, wearing proper ID and safety gear. The maintenance window is proceeding normally. No security threat detected on any camera.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-06T22:20:00Z"
+    }
+  ]
+}

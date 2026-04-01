@@ -1,0 +1,53 @@
+{
+  "task_id": "medium-010-warehouse-progression",
+  "difficulty": "medium",
+  "title": "Warehouse Cold-Storage Theft Progression",
+  "description": "CAM-02 covers the warehouse cold-storage area. The agent must navigate through multiple frames capturing the progressive stages of an after-hours theft operation — from initial scoping to active removal of goods — identify the anomaly onset, and make the correct escalation decision.",
+  "camera_ids": ["cam-02"],
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 4,
+  "optimal_steps": 5,
+  "max_steps": 10,
+  "tags": ["temporal-reasoning", "theft", "warehouse", "cold-storage", "progression"],
+  "frames": [
+    {
+      "frame_id": "medium-010-f0",
+      "camera_id": "cam-02",
+      "description": "Warehouse cold-storage area. Empty. Inventory shelves are neatly stocked. Loading bay doors closed and locked. No personnel present — expected at this hour.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-03T00:10:00Z"
+    },
+    {
+      "frame_id": "medium-010-f1",
+      "camera_id": "cam-02",
+      "description": "Warehouse. A person without a company uniform or ID badge has appeared near the cold-storage shelving. They are looking around cautiously and examining product labels on high-value inventory.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorised-presence",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-03T00:14:33Z"
+    },
+    {
+      "frame_id": "medium-010-f2",
+      "camera_id": "cam-02",
+      "description": "Warehouse. The suspect is now actively removing sealed boxes from the high-value shelf and placing them into a large duffel bag. Multiple items have already been removed.",
+      "anomaly_present": true,
+      "anomaly_type": "active-theft",
+      "anomaly_region": "center-right",
+      "timestamp": "2024-04-03T00:17:05Z"
+    },
+    {
+      "frame_id": "medium-010-f3",
+      "camera_id": "cam-02",
+      "description": "Warehouse. The suspect is now moving toward the loading bay exit with the heavy duffel bag. A second person has appeared near the bay door, apparently acting as lookout.",
+      "anomaly_present": true,
+      "anomaly_type": "coordinated-theft",
+      "anomaly_region": "left",
+      "timestamp": "2024-04-03T00:19:40Z"
+    }
+  ]
+}

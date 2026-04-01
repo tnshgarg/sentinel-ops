@@ -1,0 +1,71 @@
+{
+  "task_id": "hard-011-coordinated-theft",
+  "difficulty": "hard",
+  "title": "Organised Multi-Team Retail Theft Operation",
+  "description": "A coordinated theft team has deployed: one person acts as a lookout in the parking lot (CAM-01), one enters through the building lobby (CAM-04), and the primary operative accesses high-value warehouse inventory (CAM-02). The agent must track the team across all cameras, understand the coordinated nature of the threat, and escalate with appropriate urgency.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03", "cam-04"],
+  "correct_camera": "cam-02",
+  "correct_risk_level": "critical",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 6,
+  "optimal_steps": 8,
+  "max_steps": 15,
+  "tags": ["multi-camera", "coordinated-theft", "organised-crime", "temporal-reasoning", "pursuit"],
+  "frames": [
+    {
+      "frame_id": "hard-011-f0",
+      "camera_id": "cam-01",
+      "description": "Parking lot at night. A person is sitting in an idling vehicle near the entrance. They appear to be watching the building entrance and are on a phone call. Suspicious but not yet conclusive.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-05T01:30:00Z"
+    },
+    {
+      "frame_id": "hard-011-f1",
+      "camera_id": "cam-04",
+      "description": "Building entrance lobby. Two individuals in casual clothing enter through the main doors. One holds the door for the other — they appear coordinated. Neither presents a badge to the unstaffed security desk.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorised-entry",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-05T01:31:15Z"
+    },
+    {
+      "frame_id": "hard-011-f2",
+      "camera_id": "cam-04",
+      "description": "Lobby. One of the individuals has approached the building directory, appearing to confirm their target location. The second has moved toward the stairwell. Neither has checked in with security.",
+      "anomaly_present": true,
+      "anomaly_type": "reconnaissance",
+      "anomaly_region": "left",
+      "timestamp": "2024-04-05T01:31:50Z"
+    },
+    {
+      "frame_id": "hard-011-f3",
+      "camera_id": "cam-03",
+      "description": "Service corridor leading to the warehouse wing. One of the lobby intruders is now moving quickly through the corridor, using a tool to bypass the access-controlled door to the warehouse.",
+      "anomaly_present": true,
+      "anomaly_type": "access-bypass",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-05T01:33:00Z"
+    },
+    {
+      "frame_id": "hard-011-f4",
+      "camera_id": "cam-02",
+      "description": "Warehouse. The primary operative is now inside and systematically loading high-value electronics into large bags. They are moving with purpose and efficiency — clearly familiar with the layout.",
+      "anomaly_present": true,
+      "anomaly_type": "organised-theft",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-05T01:34:30Z"
+    },
+    {
+      "frame_id": "hard-011-f5",
+      "camera_id": "cam-02",
+      "description": "Warehouse. A second operative has entered the warehouse and is now assisting with the theft. Multiple bags are being filled. The operation is moving rapidly — estimated goods value in the tens of thousands.",
+      "anomaly_present": true,
+      "anomaly_type": "high-value-theft",
+      "anomaly_region": "center-right",
+      "timestamp": "2024-04-05T01:35:45Z"
+    }
+  ]
+}

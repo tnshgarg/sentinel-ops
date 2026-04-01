@@ -1,0 +1,44 @@
+{
+  "task_id": "easy-007-atm-tampering",
+  "difficulty": "easy",
+  "title": "ATM Skimmer Installation Attempt",
+  "description": "An alert triggers on CAM-01 near the parking lot ATM kiosk. The agent must inspect the frame, detect a person installing a skimming device on the ATM, classify the risk, and escalate for police response.",
+  "camera_ids": ["cam-01"],
+  "correct_camera": "cam-01",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 3,
+  "optimal_steps": 3,
+  "max_steps": 8,
+  "tags": ["single-camera", "atm-tampering", "financial-crime", "parking-lot"],
+  "frames": [
+    {
+      "frame_id": "easy-007-f0",
+      "camera_id": "cam-01",
+      "description": "Parking lot at night. Well-lit ATM kiosk in the corner near the entrance. Several parked vehicles. No suspicious activity visible.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-02T01:48:00Z"
+    },
+    {
+      "frame_id": "easy-007-f1",
+      "camera_id": "cam-01",
+      "description": "Parking lot. A person wearing a hooded jacket is crouching at the ATM kiosk, appearing to attach a device to the card reader slot. They are working quickly with tools visible in their hand.",
+      "anomaly_present": true,
+      "anomaly_type": "atm-skimmer-installation",
+      "anomaly_region": "bottom-right",
+      "timestamp": "2024-04-02T01:51:22Z"
+    },
+    {
+      "frame_id": "easy-007-f2",
+      "camera_id": "cam-01",
+      "description": "Parking lot. The suspect has finished attaching the device and is now stepping back, appearing to test the ATM as a normal user to verify the skimmer is hidden. The device is visible on the card reader.",
+      "anomaly_present": true,
+      "anomaly_type": "financial-fraud-device",
+      "anomaly_region": "bottom-right",
+      "timestamp": "2024-04-02T01:52:10Z"
+    }
+  ]
+}
