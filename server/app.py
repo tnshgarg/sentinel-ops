@@ -139,7 +139,7 @@ async def timing_middleware(request: Request, call_next):
 async def health():
     """Liveness probe — always 200 if the server is up."""
     return {
-        "status": "ok",
+        "status": "healthy",
         "service": "sentinelops",
         "version": "1.1.0",
         "active_sessions": len(_sessions),

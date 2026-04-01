@@ -311,7 +311,7 @@ def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> List[D
 
     # Build multimodal content with the frame image by default.
     # Set ENABLE_VISION=false to fall back to text-only (non-vision models).
-    enable_vision = os.environ.get("ENABLE_VISION", "true").lower() == "true"
+    enable_vision = False
 
     if enable_vision:
         user_content: List[Dict[str, Any]] = [
