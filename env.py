@@ -24,7 +24,7 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import DEFAULT_REWARD_TABLE, FRAMES_DIR, TASKS_DIR, settings
+from config import DEFAULT_REWARD_TABLE, FRAMES_DIR, SEQUENCES_DIR, TASKS_DIR, settings
 from models import (
     Action,
     ActionType,
@@ -68,8 +68,16 @@ _CAMERA_FRAME_LOOKUP: Dict[Tuple[str, bool], str] = {
 }
 
 
-def _load_frame_b64(camera_id: str, anomaly_present: bool) -> str:
-    """Return base-64 encoded frame bytes for a camera / anomaly combo."""
+def _load_frame_b64(task_id: str, frame_id: str, camera_id: str, anomaly_present: bool) -> str:
+    """Return base-64 encoded frame bytes for a camera / anomaly combo.
+    Checks task-specific sequence frames first, falls back to static frames.
+    """
+    seq_path = SEQUENCES_DIR / task_id / f"{frame_id}.png"
+    if seq_path.exists():
+        with open(seq_path, "rb") as fp:
+            return base64.b64encode(fp.read()).decode("ascii")
+            
+    # Fallback logic for static frames
     filename = _CAMERA_FRAME_LOOKUP.get(
         (camera_id, anomaly_present),
         _CAMERA_FRAME_LOOKUP.get((camera_id, False), "cam01_normal.png"),
@@ -498,7 +506,12 @@ class SentinelOpsEnvironment:
         assert state is not None and gt is not None
 
         frame_ann = gt.frames[min(state.current_frame_idx, len(gt.frames) - 1)]
-        frame_b64 = _load_frame_b64(frame_ann.camera_id, frame_ann.anomaly_present)
+        frame_b64 = _load_frame_b64(
+            gt.task_id,
+            frame_ann.frame_id,
+            frame_ann.camera_id,
+            frame_ann.anomaly_present
+        )
 
         # Determine which actions are currently legal
         available = self._legal_actions()

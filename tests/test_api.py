@@ -44,7 +44,7 @@ class TestHealth:
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "ok"
+        assert data["status"] == "healthy"
         assert data["service"] == "sentinelops"
 
     def test_root_endpoint(self, client):
@@ -53,6 +53,76 @@ class TestHealth:
         data = resp.json()
         assert "service" in data
         assert "docs" in data
+
+
+# ---------------------------------------------------------------------------
+# OpenEnv Required Endpoint Tests
+# ---------------------------------------------------------------------------
+
+class TestMetadataEndpoint:
+
+    def test_metadata_returns_name_and_description(self, client):
+        resp = client.get("/metadata")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "name" in data
+        assert "description" in data
+        assert data["name"] == "sentinelops"
+        assert len(data["description"]) > 0
+
+    def test_metadata_has_version(self, client):
+        resp = client.get("/metadata")
+        data = resp.json()
+        assert "version" in data
+
+
+class TestSchemaEndpoint:
+
+    def test_schema_returns_all_three(self, client):
+        resp = client.get("/schema")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "action" in data
+        assert "observation" in data
+        assert "state" in data
+
+    def test_schema_action_has_properties(self, client):
+        resp = client.get("/schema")
+        data = resp.json()
+        assert "properties" in data["action"]
+        assert "action_type" in data["action"]["properties"]
+
+
+class TestMCPEndpoint:
+
+    def test_mcp_ping(self, client):
+        resp = client.post("/mcp", json={"jsonrpc": "2.0", "method": "ping", "id": 1})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+
+    def test_mcp_initialize(self, client):
+        resp = client.post("/mcp", json={"jsonrpc": "2.0", "method": "initialize", "id": 2})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "serverInfo" in data["result"]
+
+    def test_mcp_tools_list(self, client):
+        resp = client.post("/mcp", json={"jsonrpc": "2.0", "method": "tools/list", "id": 3})
+        assert resp.status_code == 200
+        data = resp.json()
+        tools = data["result"]["tools"]
+        tool_names = [t["name"] for t in tools]
+        assert "reset" in tool_names
+        assert "step" in tool_names
+        assert "state" in tool_names
+
+    def test_mcp_unknown_method(self, client):
+        resp = client.post("/mcp", json={"jsonrpc": "2.0", "method": "nonexistent", "id": 4})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "error" in data
 
 
 # ---------------------------------------------------------------------------

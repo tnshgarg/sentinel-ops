@@ -67,12 +67,10 @@ logger = logging.getLogger("sentinelops.inference")
 # The `:cheapest` suffix tells HF router to pick the cheapest provider.
 # Smaller models consume fewer credits per request.
 MODEL_FALLBACK_CHAIN: List[str] = [
-    MODEL_NAME,                                          # User-configured primary
-    "meta-llama/Llama-3.3-70B-Instruct:cheapest",       # 70B via cheapest provider
-    "meta-llama/Llama-3.1-8B-Instruct:cheapest",        # 8B — much cheaper
-    "Qwen/Qwen2.5-7B-Instruct:cheapest",                # 7B alternative
-    "microsoft/Phi-4-mini-instruct:cheapest",            # 3.8B — very cheap
-    "HuggingFaceH4/zephyr-7b-beta:cheapest",            # 7B fallback
+    "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "Qwen/Qwen2.5-7B-Instruct",
+    "meta-llama/Llama-3.2-1B-Instruct",
 ]
 
 # De-duplicate while preserving order
@@ -447,6 +445,9 @@ def run_episode(
         # Parse response
         parsed = parse_agent_response(agent_text)
         action_type, payload = extract_action_and_payload(parsed)
+
+        # Rate-limiting to ensure we do not hit HF free-tier burst limits
+        time.sleep(3)
 
         if verbose:
             model_short = active_model.split("/")[-1][:25] if "/" in active_model else active_model
