@@ -10,7 +10,7 @@ description: >
   cameras, detect anomalies, classify threat severity, and decide whether
   to escalate incidents or dismiss false alarms.
 
-author: SentinelOps Team
+author: Team Adaptrix
 license: MIT
 
 # Environment interface
@@ -63,13 +63,28 @@ episode:
 difficulty_tiers:
   - name: easy
     description: Single camera anomaly detection
-    tasks: 2
+    tasks: 4
+    task_ids:
+      - easy-001-parking-intrusion
+      - easy-002-warehouse-access
+      - easy-007-atm-tampering
+      - easy-008-night-patrol-false-alarm
   - name: medium
     description: Multi-frame temporal reasoning
-    tasks: 2
+    tasks: 4
+    task_ids:
+      - medium-003-corridor-intrusion
+      - medium-004-lobby-surveillance
+      - medium-009-rooftop-sabotage
+      - medium-010-warehouse-progression
   - name: hard
     description: Multi-camera coordinated incidents
-    tasks: 2
+    tasks: 4
+    task_ids:
+      - hard-005-multi-camera-pursuit
+      - hard-006-false-alarm-discrimination
+      - hard-011-coordinated-theft
+      - hard-012-authorized-access-false-alarm
 
 # Deployment
 deployment:
