@@ -44,51 +44,35 @@ logger = logging.getLogger("sentinelops.env")
 # Frame Loading Utilities
 # ---------------------------------------------------------------------------
 
-# Maps (camera_id, descriptor) -> actual filename on disk.
-# In production this would be a database or object store query.
-_FRAME_MAP: Dict[str, str] = {
-    "cam01_normal": "cam01_normal.png",
-    "cam01_anomaly": "cam01_anomaly.png",
-    "cam02_suspicious": "cam02_suspicious.png",
-    "cam03_corridor": "cam03_corridor.png",
-    "cam03_intruder": "cam03_intruder.png",
-    "cam04_entrance": "cam04_entrance.png",
-}
-
-# Which on-disk frame to use for each (camera_id, anomaly_present) pair.
-_CAMERA_FRAME_LOOKUP: Dict[Tuple[str, bool], str] = {
-    ("cam-01", False): "cam01_normal.png",
-    ("cam-01", True):  "cam01_anomaly.png",
-    ("cam-02", False): "cam02_suspicious.png",
-    ("cam-02", True):  "cam02_suspicious.png",
-    ("cam-03", False): "cam03_corridor.png",
-    ("cam-03", True):  "cam03_intruder.png",
-    ("cam-04", False): "cam04_entrance.png",
-    ("cam-04", True):  "cam04_entrance.png",
-}
-
-
 def _load_frame_b64(task_id: str, frame_id: str, camera_id: str, anomaly_present: bool) -> str:
     """Return base-64 encoded frame bytes for a camera / anomaly combo.
-    Checks task-specific sequence frames first, falls back to static frames.
+    Checks task-specific sequence frames first, falls back to dynamic resolution.
     """
     seq_path = SEQUENCES_DIR / task_id / f"{frame_id}.png"
     if seq_path.exists():
         with open(seq_path, "rb") as fp:
             return base64.b64encode(fp.read()).decode("ascii")
             
-    # Fallback logic for static frames
-    filename = _CAMERA_FRAME_LOOKUP.get(
-        (camera_id, anomaly_present),
-        _CAMERA_FRAME_LOOKUP.get((camera_id, False), "cam01_normal.png"),
-    )
-    path = FRAMES_DIR / filename
-    if not path.exists():
-        # Fallback: create a tiny placeholder PNG so the env never crashes.
-        logger.warning("Frame file %s not found; returning empty placeholder.", path)
-        return _generate_placeholder_b64(camera_id)
-    with open(path, "rb") as fp:
-        return base64.b64encode(fp.read()).decode("ascii")
+    # Fallback to dynamically finding a static frame
+    cam_prefix = camera_id.replace("-", "").lower()
+    matches = list(FRAMES_DIR.glob(f"{cam_prefix}*.png"))
+    
+    best_match = None
+    if matches:
+        if anomaly_present:
+            anomaly_imgs = [m for m in matches if any(w in m.name.lower() for w in ["anomaly", "suspicious", "intruder"])]
+            best_match = anomaly_imgs[0] if anomaly_imgs else matches[0]
+        else:
+            normal_imgs = [m for m in matches if any(w in m.name.lower() for w in ["normal", "corridor", "entrance"])]
+            best_match = normal_imgs[0] if normal_imgs else matches[0]
+
+    if best_match and best_match.exists():
+        with open(best_match, "rb") as fp:
+            return base64.b64encode(fp.read()).decode("ascii")
+
+    # Fallback: create a placeholder so the env never crashes.
+    logger.warning("Frame for %s not found; returning empty placeholder.", camera_id)
+    return _generate_placeholder_b64(camera_id)
 
 
 def _generate_placeholder_b64(label: str = "NO SIGNAL") -> str:

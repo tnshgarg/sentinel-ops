@@ -25,36 +25,37 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("generate_sequences")
 
 
-# Camera-specific color themes for the HUD bar
-_CAMERA_COLORS = {
-    "cam-01": (20, 80, 20),    # Green tint — parking lot
-    "cam-02": (80, 40, 20),    # Orange tint — warehouse
-    "cam-03": (20, 40, 80),    # Blue tint — corridor
-    "cam-04": (60, 20, 60),    # Purple tint — entrance
-}
+def _get_camera_color(camera_id: str) -> tuple[int, int, int]:
+    """Deterministically generate a subtle HUD bar color based on the camera string."""
+    import hashlib
+    val = int(hashlib.md5(camera_id.encode()).hexdigest(), 16)
+    return (val % 80 + 20, (val // 80) % 80 + 20, (val // 6400) % 80 + 20)
 
 
 def _get_base_image(camera_id: str, anomaly_present: bool) -> Image.Image:
-    """Load the base static frame for a camera, with slight visual variation for anomaly."""
-    base_map = {
-        ("cam-01", False): "cam01_normal.png",
-        ("cam-01", True):  "cam01_anomaly.png",
-        ("cam-02", False): "cam02_suspicious.png",
-        ("cam-02", True):  "cam02_suspicious.png",
-        ("cam-03", False): "cam03_corridor.png",
-        ("cam-03", True):  "cam03_intruder.png",
-        ("cam-04", False): "cam04_entrance.png",
-        ("cam-04", True):  "cam04_entrance.png",
-    }
+    """
+    Dynamically resolve the best base frame from assets/frames without hardcoding.
+    Searches for files matching the camera ID prefix.
+    """
+    cam_prefix = camera_id.replace("-", "").lower()
+    
+    matches = list(FRAMES_DIR.glob(f"{cam_prefix}*.png"))
+    
+    best_match = None
+    if matches:
+        if anomaly_present:
+            # Prefer images explicitly named anomaly/suspicious if present
+            anomaly_imgs = [m for m in matches if any(w in m.name.lower() for w in ["anomaly", "suspicious", "intruder"])]
+            best_match = anomaly_imgs[0] if anomaly_imgs else matches[0]
+        else:
+            # Prefer normal images
+            normal_imgs = [m for m in matches if any(w in m.name.lower() for w in ["normal", "corridor", "entrance"])]
+            best_match = normal_imgs[0] if normal_imgs else matches[0]
 
-    filename = base_map.get((camera_id, anomaly_present),
-                            base_map.get((camera_id, False), "cam01_normal.png"))
-    path = FRAMES_DIR / filename
-
-    if path.exists():
-        img = Image.open(path).convert("RGB")
+    if best_match and best_match.exists():
+        img = Image.open(best_match).convert("RGB")
     else:
-        # Minimal fallback — dark frame
+        # Procedural fallback frame if no asset matches the camera
         img = Image.new("RGB", (640, 480), color=(15, 15, 20))
 
     return img.resize((640, 480))
@@ -84,7 +85,7 @@ def _apply_cctv_hud(img: Image.Image, camera_id: str, timestamp: str,
         font_hud = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    bar_color = _CAMERA_COLORS.get(camera_id, (40, 40, 40))
+    bar_color = _get_camera_color(camera_id)
 
     # Top bar background
     draw.rectangle([(0, 0), (640, 32)], fill=(0, 0, 0))
