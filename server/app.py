@@ -148,14 +148,146 @@ async def health():
 
 @app.get("/", tags=["infra"])
 async def root():
-    """Root endpoint — redirects to docs in a browser."""
-    return {
-        "service": "SentinelOps OpenEnv",
-        "version": "1.1.0",
-        "docs": "/docs",
-        "health": "/health",
-        "metrics": "/metrics",
-    }
+    """Root endpoint — serves a beautiful dashboard when accessed in a browser."""
+    from fastapi.responses import HTMLResponse
+
+    # Build task summary from environment
+    try:
+        env = _get_session("_dashboard_")
+        task_list = env.list_tasks()
+        easy_count = sum(1 for t in task_list if t.get("difficulty") == "easy")
+        medium_count = sum(1 for t in task_list if t.get("difficulty") == "medium")
+        hard_count = sum(1 for t in task_list if t.get("difficulty") == "hard")
+        total_tasks = len(task_list)
+    except Exception:
+        easy_count = medium_count = hard_count = total_tasks = "?"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelOps — AI Surveillance Control Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{{margin:0;padding:0;box-sizing:border-box}}
+  body{{font-family:'Inter',sans-serif;background:#0a0e17;color:#e2e8f0;min-height:100vh;overflow-x:hidden}}
+  .bg-grid{{position:fixed;top:0;left:0;width:100%;height:100%;background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+    background-size:40px 40px;z-index:0;pointer-events:none}}
+  .container{{max-width:1100px;margin:0 auto;padding:2rem;position:relative;z-index:1}}
+  .header{{text-align:center;margin-bottom:3rem;animation:fadeIn 0.8s ease}}
+  @keyframes fadeIn{{from{{opacity:0;transform:translateY(-20px)}}to{{opacity:1;transform:translateY(0)}}}}
+  @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:0.5}}}}
+  .shield{{font-size:4rem;margin-bottom:0.5rem;filter:drop-shadow(0 0 20px rgba(59,130,246,0.4))}}
+  h1{{font-size:2.5rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.5rem}}
+  .subtitle{{font-size:1.1rem;color:#94a3b8;font-weight:300;max-width:700px;margin:0 auto;line-height:1.6}}
+  .badge-row{{display:flex;justify-content:center;gap:0.5rem;margin-top:1rem;flex-wrap:wrap}}
+  .badge{{padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:500;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05)}}
+  .badge.green{{border-color:rgba(52,211,153,0.3);color:#34d399}}
+  .badge.blue{{border-color:rgba(96,165,250,0.3);color:#60a5fa}}
+  .badge.purple{{border-color:rgba(167,139,250,0.3);color:#a78bfa}}
+  .live-dot{{width:8px;height:8px;background:#34d399;border-radius:50%;display:inline-block;animation:pulse 2s ease infinite;margin-right:6px;vertical-align:middle}}
+  .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.5rem;margin-bottom:2.5rem}}
+  .card{{background:linear-gradient(145deg,rgba(15,23,42,0.8),rgba(15,23,42,0.4));border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:1.5rem;backdrop-filter:blur(12px);transition:all 0.3s ease}}
+  .card:hover{{border-color:rgba(96,165,250,0.3);transform:translateY(-2px);box-shadow:0 8px 32px rgba(59,130,246,0.1)}}
+  .card-icon{{font-size:1.8rem;margin-bottom:0.75rem}}
+  .card h3{{font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;color:#f1f5f9}}
+  .card p{{font-size:0.875rem;color:#94a3b8;line-height:1.5}}
+  .stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2.5rem}}
+  .stat{{text-align:center;padding:1.25rem;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:12px}}
+  .stat-number{{font-size:2rem;font-weight:700;font-family:'JetBrains Mono',monospace}}
+  .stat-number.blue{{color:#60a5fa}}
+  .stat-number.green{{color:#34d399}}
+  .stat-number.amber{{color:#fbbf24}}
+  .stat-number.red{{color:#f87171}}
+  .stat-label{{font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.25rem}}
+  .actions-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;margin-top:1rem}}
+  .action-chip{{padding:8px 14px;background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:#94a3b8;transition:all 0.2s}}
+  .action-chip:hover{{border-color:rgba(96,165,250,0.4);color:#60a5fa}}
+  .api-section{{margin-top:2rem}}
+  .api-link{{display:inline-flex;align-items:center;gap:0.5rem;padding:10px 24px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;text-decoration:none;border-radius:10px;font-weight:500;font-size:0.95rem;transition:all 0.3s}}
+  .api-link:hover{{transform:translateY(-1px);box-shadow:0 4px 20px rgba(59,130,246,0.4)}}
+  .footer{{text-align:center;margin-top:3rem;padding-top:2rem;border-top:1px solid rgba(255,255,255,0.06);color:#475569;font-size:0.85rem}}
+  .footer a{{color:#60a5fa;text-decoration:none}}
+  @media(max-width:768px){{.stats{{grid-template-columns:repeat(2,1fr)}}h1{{font-size:1.8rem}}.cards{{grid-template-columns:1fr}}}}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="container">
+  <div class="header">
+    <div class="shield">🛡️</div>
+    <h1>SentinelOps</h1>
+    <p class="subtitle">Interactive Incident Response Control Room — a multi-step agentic RL environment where AI agents monitor surveillance feeds, detect anomalies, and escalate incidents in real time.</p>
+    <div class="badge-row">
+      <span class="badge green"><span class="live-dot"></span>Live</span>
+      <span class="badge blue">OpenEnv Compatible</span>
+      <span class="badge purple">Multi-Step Agentic</span>
+      <span class="badge">Meta × Scaler Hackathon</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-number blue">{total_tasks}</div><div class="stat-label">Total Tasks</div></div>
+    <div class="stat"><div class="stat-number green">{easy_count}</div><div class="stat-label">Easy</div></div>
+    <div class="stat"><div class="stat-number amber">{medium_count}</div><div class="stat-label">Medium</div></div>
+    <div class="stat"><div class="stat-number red">{hard_count}</div><div class="stat-label">Hard</div></div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">📡</div>
+      <h3>Multi-Camera Surveillance</h3>
+      <p>Agents navigate between 1–4 camera feeds, tracking suspects across locations. Each camera provides different viewpoints of the same incident timeline.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <h3>Sequential Decision Making</h3>
+      <p>5–15 step episodes with shaped trajectory rewards. Agents must inspect frames, navigate timelines, classify threats, and make escalation decisions.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚖️</div>
+      <h3>Deterministic Grading</h3>
+      <p>Rubric-based scoring — no LLM-as-judge. Three difficulty-specific graders with reproducible scores between 0.0 and 1.0.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">👁️</div>
+      <h3>Vision-Language Support</h3>
+      <p>Sends real CCTV frame images (base64-encoded) to VLM agents. Temporal variation and HUD overlays simulate authentic surveillance footage.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-bottom:0.75rem;color:#f1f5f9">🎮 Action Space</h3>
+  <div class="actions-grid">
+    <div class="action-chip">inspect_current_frame</div>
+    <div class="action-chip">request_previous_frame</div>
+    <div class="action-chip">request_next_frame</div>
+    <div class="action-chip">switch_camera</div>
+    <div class="action-chip">zoom_region</div>
+    <div class="action-chip">classify_risk</div>
+    <div class="action-chip">escalate_incident</div>
+    <div class="action-chip">dismiss_alert</div>
+  </div>
+
+  <div class="api-section" style="text-align:center;margin-top:2rem">
+    <a href="/docs" class="api-link">📖 Interactive API Docs</a>
+    &nbsp;&nbsp;
+    <a href="/redoc" class="api-link" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">📋 ReDoc</a>
+  </div>
+
+  <div class="footer">
+    <p>Built by <strong>Team Adaptrix</strong> for the Meta × Scaler OpenEnv Hackathon</p>
+    <p style="margin-top:0.4rem">
+      <a href="/health">Health</a> · <a href="/tasks">Tasks</a> · <a href="/metrics">Metrics</a> · <a href="/metadata">Metadata</a> · <a href="/schema">Schema</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>"""
+
+    return HTMLResponse(content=html, status_code=200)
 
 
 @app.get("/metadata", tags=["openenv"])
@@ -247,15 +379,16 @@ async def mcp_endpoint(request: Request):
         tool_name = (body.get("params") or {}).get("name", "")
         tool_args = (body.get("params") or {}).get("arguments", {})
         try:
+            mcp_env = _get_session(DEFAULT_SESSION_ID)
             if tool_name == "reset":
-                obs, info = _env.reset(task_id=tool_args.get("task_id"))
+                obs, info = mcp_env.reset(task_id=tool_args.get("task_id"))
                 result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "info": info})}]}
             elif tool_name == "step":
                 action = Action(**tool_args)
-                obs, reward, terminated, truncated, info = _env.step(action)
+                obs, reward, terminated, truncated, info = mcp_env.step(action)
                 result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "reward": reward, "terminated": terminated, "truncated": truncated, "info": info})}]}
             elif tool_name == "state":
-                state = _env.state()
+                state = mcp_env.state()
                 result = {"content": [{"type": "text", "text": json.dumps(state.model_dump())}]}
             else:
                 return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}, "id": rpc_id})

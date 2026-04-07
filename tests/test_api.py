@@ -50,9 +50,7 @@ class TestHealth:
     def test_root_endpoint(self, client):
         resp = client.get("/")
         assert resp.status_code == 200
-        data = resp.json()
-        assert "service" in data
-        assert "docs" in data
+        assert "SentinelOps" in resp.text
 
 
 # ---------------------------------------------------------------------------

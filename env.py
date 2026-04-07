@@ -44,14 +44,46 @@ logger = logging.getLogger("sentinelops.env")
 # Frame Loading Utilities
 # ---------------------------------------------------------------------------
 
-def _load_frame_b64(task_id: str, frame_id: str, camera_id: str, anomaly_present: bool) -> str:
+def _load_frame_b64(task_id: str, frame_id: str, camera_id: str, anomaly_present: bool, zoom_region: Optional[str] = None) -> str:
     """Return base-64 encoded frame bytes for a camera / anomaly combo.
     Checks task-specific sequence frames first, falls back to dynamic resolution.
     """
+    import io
+    from PIL import Image
+
+    def _process_and_encode(img_path):
+        with open(img_path, "rb") as fp:
+            if not zoom_region:
+                return base64.b64encode(fp.read()).decode("ascii")
+            
+            # Zoom is active: perform actual image crop
+            img = Image.open(fp)
+            width, height = img.size
+            if zoom_region == "top-left":
+                box = (0, 0, width//2, height//2)
+            elif zoom_region == "top-right":
+                box = (width//2, 0, width, height//2)
+            elif zoom_region == "bottom-left":
+                box = (0, height//2, width//2, height)
+            elif zoom_region == "bottom-right":
+                box = (width//2, height//2, width, height)
+            elif zoom_region == "center":
+                box = (width//4, height//4, width*3//4, height*3//4)
+            elif zoom_region == "left":
+                box = (0, 0, width//2, height)
+            elif zoom_region == "right":
+                box = (width//2, 0, width, height)
+            else:
+                box = (0, 0, width, height) # fallback
+            
+            img = img.crop(box)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode("ascii")
+
     seq_path = SEQUENCES_DIR / task_id / f"{frame_id}.png"
     if seq_path.exists():
-        with open(seq_path, "rb") as fp:
-            return base64.b64encode(fp.read()).decode("ascii")
+        return _process_and_encode(seq_path)
             
     # Fallback to dynamically finding a static frame
     cam_prefix = camera_id.replace("-", "").lower()
@@ -67,8 +99,7 @@ def _load_frame_b64(task_id: str, frame_id: str, camera_id: str, anomaly_present
             best_match = normal_imgs[0] if normal_imgs else matches[0]
 
     if best_match and best_match.exists():
-        with open(best_match, "rb") as fp:
-            return base64.b64encode(fp.read()).decode("ascii")
+        return _process_and_encode(best_match)
 
     # Fallback: create a placeholder so the env never crashes.
     logger.warning("Frame for %s not found; returning empty placeholder.", camera_id)
@@ -186,11 +217,14 @@ class RewardEngine:
         # --- Temporal navigation ---
         elif at in (ActionType.REQUEST_PREVIOUS_FRAME, ActionType.REQUEST_NEXT_FRAME):
             # Correct temporal reasoning: moving to the anomaly start frame
-            target_idx = (
-                state.current_frame_idx - 1
-                if at == ActionType.REQUEST_PREVIOUS_FRAME
-                else state.current_frame_idx + 1
-            )
+            target_idx = state.current_frame_idx
+            step_dir = -1 if at == ActionType.REQUEST_PREVIOUS_FRAME else 1
+            
+            # Find the actual target index for this camera
+            target_idx += step_dir
+            while 0 <= target_idx < gt.total_frames and gt.frames[target_idx].camera_id != state.current_camera:
+                target_idx += step_dir
+                
             if 0 <= target_idx < gt.total_frames:
                 target_frame = gt.frames[target_idx]
                 if target_frame.anomaly_present:
@@ -445,14 +479,20 @@ class SentinelOpsEnvironment:
                 state.frames_inspected.append(frame_key)
 
         elif at == ActionType.REQUEST_PREVIOUS_FRAME:
-            if state.current_frame_idx > 0:
-                state.current_frame_idx -= 1
+            idx = state.current_frame_idx - 1
+            while idx >= 0 and gt.frames[idx].camera_id != state.current_camera:
+                idx -= 1
+            if idx >= 0:
+                state.current_frame_idx = idx
             state.zoom_active = False
             state.zoom_region = None
 
         elif at == ActionType.REQUEST_NEXT_FRAME:
-            if state.current_frame_idx < gt.total_frames - 1:
-                state.current_frame_idx += 1
+            idx = state.current_frame_idx + 1
+            while idx < gt.total_frames and gt.frames[idx].camera_id != state.current_camera:
+                idx += 1
+            if idx < gt.total_frames:
+                state.current_frame_idx = idx
             state.zoom_active = False
             state.zoom_region = None
 
@@ -462,11 +502,19 @@ class SentinelOpsEnvironment:
                 state.current_camera = target
                 if target not in state.cameras_visited:
                     state.cameras_visited.append(target)
-                # Find the first frame belonging to this camera
-                for idx, f in enumerate(gt.frames):
-                    if f.camera_id == target:
-                        state.current_frame_idx = idx
+                # Find the frame for this camera that is closest to our current timeline
+                best_idx = None
+                for idx in range(state.current_frame_idx, -1, -1):
+                    if gt.frames[idx].camera_id == target:
+                        best_idx = idx
                         break
+                if best_idx is None:
+                    for idx in range(state.current_frame_idx, gt.total_frames):
+                        if gt.frames[idx].camera_id == target:
+                            best_idx = idx
+                            break
+                if best_idx is not None:
+                    state.current_frame_idx = best_idx
             state.zoom_active = False
             state.zoom_region = None
 
@@ -494,7 +542,8 @@ class SentinelOpsEnvironment:
             gt.task_id,
             frame_ann.frame_id,
             frame_ann.camera_id,
-            frame_ann.anomaly_present
+            frame_ann.anomaly_present,
+            state.zoom_region if state.zoom_active else None
         )
 
         # Determine which actions are currently legal
@@ -508,9 +557,14 @@ class SentinelOpsEnvironment:
         else:
             alert = AlertLevel.LOW
 
-        context_parts = [frame_ann.description]
+        context_parts = []
         if state.zoom_active and state.zoom_region:
-            context_parts.append(f"[ZOOMED into region: {state.zoom_region}]")
+            # We explicitly replace the full-frame context description so the 
+            # agent isn't leaked details that might be out of the zoomed frame.
+            context_parts.append(f"[ZOOMED VIEW] Camera focused on the {state.zoom_region} region. Frame context is restricted.")
+        else:
+            context_parts.append(frame_ann.description)
+            
         if state.risk_classified:
             context_parts.append(f"[Risk classified as: {state.risk_classified}]")
 
@@ -526,6 +580,7 @@ class SentinelOpsEnvironment:
                 "frame_id": frame_ann.frame_id,
                 "timestamp": frame_ann.timestamp,
                 "cameras_visited": state.cameras_visited,
+                "camera_ids": gt.camera_ids,
                 "zoom": state.zoom_active,
             },
         )
@@ -540,9 +595,16 @@ class SentinelOpsEnvironment:
             ActionType.INSPECT_CURRENT_FRAME,
         ]
 
-        if state.current_frame_idx > 0:
+        idx = state.current_frame_idx - 1
+        while idx >= 0 and gt.frames[idx].camera_id != state.current_camera:
+            idx -= 1
+        if idx >= 0:
             actions.append(ActionType.REQUEST_PREVIOUS_FRAME)
-        if state.current_frame_idx < gt.total_frames - 1:
+            
+        idx = state.current_frame_idx + 1
+        while idx < gt.total_frames and gt.frames[idx].camera_id != state.current_camera:
+            idx += 1
+        if idx < gt.total_frames:
             actions.append(ActionType.REQUEST_NEXT_FRAME)
         if len(gt.camera_ids) > 1:
             actions.append(ActionType.SWITCH_CAMERA)

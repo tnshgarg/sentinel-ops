@@ -109,7 +109,8 @@ else:
             
             payload = ""
             if action_choice == "switch_camera":
-                payload = st.selectbox("Payload (Camera ID)", ["cam-01", "cam-02", "cam-03", "cam-04"])
+                valid_cams = obs.get("metadata", {}).get("camera_ids", ["cam-01"])
+                payload = st.selectbox("Payload (Camera ID)", valid_cams)
             elif action_choice == "zoom_region":
                 payload = st.selectbox("Payload (Region)", ["top-left", "top-right", "bottom-left", "bottom-right", "center", "left", "right"])
             elif action_choice == "classify_risk":
