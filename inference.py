@@ -208,14 +208,15 @@ HARD tasks (multi-camera, 4 cameras, must visit 3+ different cameras):
   Step 2: switch_camera:<cam-id>    — switch to a 2nd camera (switch count = 1)
   Step 3: switch_camera:<cam-id>    — switch to a 3rd camera (switch count = 2) → 3 cameras ✓
   Step 4: switch_camera:<cam-id>    — switch to the camera where the REAL THREAT is (switch count = 3)
+           Identify the threat camera by inspecting each feed and reading the scene descriptions.
   Step 5: inspect_current_frame     — inspect the threat camera
   Step 6: request_next_frame        — advance frames (nav count = 1)
   Step 7: inspect_current_frame     — inspect next frame for evidence
   Step 8: request_next_frame        — advance again (nav count = 2) → earns temporal bonus ✓
   Step 9: classify_risk:<level>     — classify ONLY on the threat camera with confirmed evidence
   Step 10: escalate_incident OR dismiss_alert
-  - Read the task description — it tells you which camera has the real threat
   - switch_camera payload must be exact: "cam-01", "cam-02", "cam-03", or "cam-04"
+  - Visit each camera and read its scene description to determine where the real threat is
   - Do NOT classify_risk unless you are ON the threat camera with clear evidence
   - Only classify ONCE — misclassifications are heavily penalised
 
@@ -300,11 +301,13 @@ def call_llm_with_fallback(
 # Agent Logic
 # ---------------------------------------------------------------------------
 
-def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> str:
+def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]):
     """
-    Build text-only user content from the current observation.
+    Build user content from the current observation.
 
-    Returns a plain string (works with all text LLMs, no base64 bloat in history).
+    When ENABLE_VISION=true, returns a multimodal list [text, image] so the LLM
+    actually sees the surveillance frame.  Falls back to plain text for text-only
+    models.  Images are stripped from history after each turn to avoid token bloat.
     """
     obs = obs_data
     parts = [
@@ -326,7 +329,20 @@ def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> str:
         if "cumulative_reward" in info:
             parts.append(f"Running score: {info['cumulative_reward']:.3f}")
 
-    return "\n".join(parts)
+    text_prompt = "\n".join(parts)
+
+    enable_vision = os.environ.get("ENABLE_VISION", "false").lower() == "true"
+    if enable_vision:
+        user_content: List[Dict[str, Any]] = [{"type": "text", "text": text_prompt}]
+        frame_b64 = obs.get("frame_b64", "")
+        if frame_b64:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{frame_b64}"},
+            })
+        return user_content
+
+    return text_prompt
 
 
 def parse_agent_response(text: str) -> Dict[str, Any]:
@@ -421,9 +437,9 @@ def run_episode(
     opening_context = (
         f"NEW EPISODE: {info.get('title', 'Unknown Task')}\n"
         f"Difficulty: {difficulty.upper()}\n"
-        f"Description: {info.get('description', '')}\n"
         f"Available cameras: {', '.join(camera_ids)}\n"
         f"Max steps allowed: {max_steps}\n\n"
+        f"An alert has been triggered. Investigate the camera feeds to find the threat.\n"
         f"Follow the MANDATORY STRATEGY for {difficulty.upper()} tasks exactly."
     )
 
@@ -536,12 +552,18 @@ def run_episode(
                         break
                     continue
 
-        # Build observation content
+        # Build observation content (multimodal if ENABLE_VISION=true, else text)
         user_content = build_user_content(obs_data, info_step)
         messages.append({"role": "user", "content": user_content})
 
         # Query LLM with fallback chain
         agent_text, active_model = call_llm_with_fallback(messages, MODEL_CHAIN)
+
+        # Strip image from history after the call — keeps tokens manageable
+        if isinstance(user_content, list):
+            text_only = next((p["text"] for p in user_content if p.get("type") == "text"), "")
+            messages[-1] = {"role": "user", "content": text_only}
+
         messages.append({"role": "assistant", "content": agent_text})
 
         # Parse response
