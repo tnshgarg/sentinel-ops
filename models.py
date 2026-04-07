@@ -93,6 +93,10 @@ class Action(BaseModel):
     action_type: str
     payload: Optional[str] = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    
+    # Elite Predictive Grounding (Phase 15 Council Requirement)
+    predicted_gaze: Optional[List[int]] = Field(default=None, description="Predicted [y, x] in 0-1000 normalized space")
+    velocity_vector: Optional[List[int]] = Field(default=None, description="Predicted [dy, dx] pixels/step")
 
     @field_validator("action_type")
     @classmethod

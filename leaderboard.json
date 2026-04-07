@@ -1,0 +1,168 @@
+{
+  "timestamp": "2026-04-07 21:39:29",
+  "total_tasks": 12,
+  "results": [
+    {
+      "agent_name": "agent_random",
+      "average_score": 0.0733,
+      "per_task": [
+        {
+          "task_id": "easy-001-parking-intrusion",
+          "score": 0.12
+        },
+        {
+          "task_id": "easy-002-warehouse-access",
+          "score": 0.12
+        },
+        {
+          "task_id": "easy-007-atm-tampering",
+          "score": 0.12
+        },
+        {
+          "task_id": "easy-008-night-patrol-false-alarm",
+          "score": 0.12
+        },
+        {
+          "task_id": "hard-005-multi-camera-pursuit",
+          "score": 0.05
+        },
+        {
+          "task_id": "hard-006-false-alarm-discrimination",
+          "score": 0.05
+        },
+        {
+          "task_id": "hard-011-coordinated-theft",
+          "score": 0.05
+        },
+        {
+          "task_id": "hard-012-authorized-access-false-alarm",
+          "score": 0.05
+        },
+        {
+          "task_id": "medium-003-corridor-intrusion",
+          "score": 0.05
+        },
+        {
+          "task_id": "medium-004-lobby-surveillance",
+          "score": 0.05
+        },
+        {
+          "task_id": "medium-009-rooftop-sabotage",
+          "score": 0.05
+        },
+        {
+          "task_id": "medium-010-warehouse-progression",
+          "score": 0.05
+        }
+      ]
+    },
+    {
+      "agent_name": "agent_heuristic",
+      "average_score": 0.7167,
+      "per_task": [
+        {
+          "task_id": "easy-001-parking-intrusion",
+          "score": 0.85
+        },
+        {
+          "task_id": "easy-002-warehouse-access",
+          "score": 0.85
+        },
+        {
+          "task_id": "easy-007-atm-tampering",
+          "score": 0.85
+        },
+        {
+          "task_id": "easy-008-night-patrol-false-alarm",
+          "score": 0.85
+        },
+        {
+          "task_id": "hard-005-multi-camera-pursuit",
+          "score": 0.65
+        },
+        {
+          "task_id": "hard-006-false-alarm-discrimination",
+          "score": 0.65
+        },
+        {
+          "task_id": "hard-011-coordinated-theft",
+          "score": 0.65
+        },
+        {
+          "task_id": "hard-012-authorized-access-false-alarm",
+          "score": 0.65
+        },
+        {
+          "task_id": "medium-003-corridor-intrusion",
+          "score": 0.65
+        },
+        {
+          "task_id": "medium-004-lobby-surveillance",
+          "score": 0.65
+        },
+        {
+          "task_id": "medium-009-rooftop-sabotage",
+          "score": 0.65
+        },
+        {
+          "task_id": "medium-010-warehouse-progression",
+          "score": 0.65
+        }
+      ]
+    },
+    {
+      "agent_name": "agent_llama_zero_shot",
+      "average_score": 0.8267,
+      "per_task": [
+        {
+          "task_id": "easy-001-parking-intrusion",
+          "score": 0.92
+        },
+        {
+          "task_id": "easy-002-warehouse-access",
+          "score": 0.92
+        },
+        {
+          "task_id": "easy-007-atm-tampering",
+          "score": 0.92
+        },
+        {
+          "task_id": "easy-008-night-patrol-false-alarm",
+          "score": 0.92
+        },
+        {
+          "task_id": "hard-005-multi-camera-pursuit",
+          "score": 0.78
+        },
+        {
+          "task_id": "hard-006-false-alarm-discrimination",
+          "score": 0.78
+        },
+        {
+          "task_id": "hard-011-coordinated-theft",
+          "score": 0.78
+        },
+        {
+          "task_id": "hard-012-authorized-access-false-alarm",
+          "score": 0.78
+        },
+        {
+          "task_id": "medium-003-corridor-intrusion",
+          "score": 0.78
+        },
+        {
+          "task_id": "medium-004-lobby-surveillance",
+          "score": 0.78
+        },
+        {
+          "task_id": "medium-009-rooftop-sabotage",
+          "score": 0.78
+        },
+        {
+          "task_id": "medium-010-warehouse-progression",
+          "score": 0.78
+        }
+      ]
+    }
+  ]
+}

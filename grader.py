@@ -75,6 +75,25 @@ class BaseGrader(ABC):
     def _has_action(state: EpisodeState, action_type: str) -> bool:
         return any(h["action_type"] == action_type for h in state.action_history)
 
+    @staticmethod
+    def _calculate_efficiency_bonus(state: EpisodeState, gt: TaskGroundTruth) -> float:
+        """Bonus for completing the task within optimal steps."""
+        if state.done and state.current_step <= gt.optimal_steps:
+            return 0.10  # 10% efficiency bonus
+        return 0.0
+
+    @staticmethod
+    def _calculate_safety_penalty(state: EpisodeState) -> float:
+        """Penalty for erratic behavior (spamming actions)."""
+        # Over 3 consecutive identical actions
+        penalty = 0.0
+        if len(state.action_history) >= 4:
+            for i in range(len(state.action_history) - 3):
+                subset = [h["action_type"] for h in state.action_history[i:i+4]]
+                if len(set(subset)) == 1:
+                    penalty -= 0.05
+        return max(-0.15, penalty)
+
 
 # ---------------------------------------------------------------------------
 # Easy Grader
@@ -95,15 +114,8 @@ class EasyGrader(BaseGrader):
         breakdown: Dict[str, float] = {}
         score = 0.0
 
-        # 1. Did the agent inspect any frame?
-        if self._has_action(state, ActionType.INSPECT_CURRENT_FRAME):
-            breakdown["frame_inspection"] = 0.15
-            score += 0.15
-        else:
-            breakdown["frame_inspection"] = 0.0
-
-        # 2. Did the agent navigate to / stay on a frame with an anomaly?
-        # Check via frames_inspected which tracks "camera_id:frame_idx" keys
+        # 1. Correctness (Sparse) - 0.70 total
+        # Did the agent inspect the right frame?
         anomaly_detected = False
         for key in state.frames_inspected:
             cam, idx_str = key.split(":")
@@ -111,32 +123,38 @@ class EasyGrader(BaseGrader):
             if idx < len(gt.frames) and gt.frames[idx].anomaly_present:
                 anomaly_detected = True
                 break
-
+        
         if anomaly_detected:
-            breakdown["anomaly_detection"] = 0.25
-            score += 0.25
-        else:
-            breakdown["anomaly_detection"] = 0.0
-
-        # 3. Correct risk classification
-        risk_payloads = self._payloads_for_action(state, ActionType.CLASSIFY_RISK)
+            breakdown["correctness_detection"] = 0.20
+            score += 0.20
+        
+        # Correct risk classification
+        risk_payloads = [h.get("payload") for h in state.action_history if h["action_type"] == ActionType.CLASSIFY_RISK]
         if risk_payloads and risk_payloads[-1] == gt.correct_risk_level.value:
-            breakdown["risk_classification"] = 0.30
+            breakdown["correctness_risk"] = 0.30
             score += 0.30
-        else:
-            breakdown["risk_classification"] = 0.0
+            
+        # Final decision
+        if (gt.should_escalate and state.escalated) or (not gt.should_escalate and state.dismissed):
+            breakdown["correctness_decision"] = 0.30
+            score += 0.30
 
-        # 4. Correct escalation / dismissal
-        if gt.should_escalate and state.escalated:
-            breakdown["escalation_decision"] = 0.30
-            score += 0.30
-        elif not gt.should_escalate and state.dismissed:
-            breakdown["escalation_decision"] = 0.30
-            score += 0.30
-        else:
-            breakdown["escalation_decision"] = 0.0
+        # 2. Efficiency (Dense) - 0.20 total
+        # Points for navigation and optimal steps
+        if self._has_action(state, ActionType.INSPECT_CURRENT_FRAME):
+            breakdown["efficiency_protocol"] = 0.10
+            score += 0.10
+        
+        eff_bonus = self._calculate_efficiency_bonus(state, gt)
+        breakdown["efficiency_speed"] = eff_bonus
+        score += eff_bonus
 
-        final = min(score, 1.0)
+        # 3. Safety (Penalties)
+        safety = self._calculate_safety_penalty(state)
+        breakdown["safety_compliance"] = safety
+        score += safety
+
+        final = max(0.0, min(score, 1.0))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
@@ -165,65 +183,40 @@ class MediumGrader(BaseGrader):
         breakdown: Dict[str, float] = {}
         score = 0.0
 
-        # 1. Frame inspection (at least 2 different frames inspected)
-        if len(state.frames_inspected) >= 2:
-            breakdown["frame_inspection"] = 0.10
-            score += 0.10
-        elif len(state.frames_inspected) == 1:
-            breakdown["frame_inspection"] = 0.05
-            score += 0.05
-        else:
-            breakdown["frame_inspection"] = 0.0
-
-        # 2. Temporal navigation — did the agent use prev/next frame actions?
-        nav_actions = [
-            ActionType.REQUEST_PREVIOUS_FRAME,
-            ActionType.REQUEST_NEXT_FRAME,
-        ]
-        nav_count = sum(
-            1 for h in state.action_history if h["action_type"] in nav_actions
-        )
-        if nav_count >= 2:
-            breakdown["temporal_navigation"] = 0.20
+        # 1. Correctness (Sparse) - 0.60
+        # Anomaly onset identification
+        onset_found = any(int(key.split(":")[1]) == gt.anomaly_start_frame for key in state.frames_inspected)
+        if onset_found:
+            breakdown["correctness_onset"] = 0.20
             score += 0.20
-        elif nav_count == 1:
-            breakdown["temporal_navigation"] = 0.10
-            score += 0.10
-        else:
-            breakdown["temporal_navigation"] = 0.0
-
-        # 3. Anomaly onset: did agent inspect the anomaly_start_frame?
-        onset_key_found = False
-        for key in state.frames_inspected:
-            _, idx_str = key.split(":")
-            if int(idx_str) == gt.anomaly_start_frame:
-                onset_key_found = True
-                break
-        if onset_key_found:
-            breakdown["anomaly_onset"] = 0.20
-            score += 0.20
-        else:
-            breakdown["anomaly_onset"] = 0.0
-
-        # 4. Risk classification
-        risk_payloads = self._payloads_for_action(state, ActionType.CLASSIFY_RISK)
+        
+        # Risk & Decision
+        risk_payloads = [h.get("payload") for h in state.action_history if h["action_type"] == ActionType.CLASSIFY_RISK]
         if risk_payloads and risk_payloads[-1] == gt.correct_risk_level.value:
-            breakdown["risk_classification"] = 0.25
+            breakdown["correctness_risk"] = 0.25
             score += 0.25
-        else:
-            breakdown["risk_classification"] = 0.0
+            
+        if (gt.should_escalate and state.escalated) or (not gt.should_escalate and state.dismissed):
+            breakdown["correctness_decision"] = 0.25
+            score += 0.25
 
-        # 5. Escalation / dismissal
-        if gt.should_escalate and state.escalated:
-            breakdown["escalation_decision"] = 0.25
-            score += 0.25
-        elif not gt.should_escalate and state.dismissed:
-            breakdown["escalation_decision"] = 0.25
-            score += 0.25
-        else:
-            breakdown["escalation_decision"] = 0.0
+        # 2. Efficiency (Dense) - 0.30
+        nav_actions = [ActionType.REQUEST_PREVIOUS_FRAME, ActionType.REQUEST_NEXT_FRAME]
+        nav_count = sum(1 for h in state.action_history if h["action_type"] in nav_actions)
+        if nav_count >= 2:
+            breakdown["efficiency_nav"] = 0.10
+            score += 0.10
+        
+        eff_bonus = self._calculate_efficiency_bonus(state, gt)
+        breakdown["efficiency_speed"] = eff_bonus * 2  # Harder tasks get more speed reward
+        score += breakdown["efficiency_speed"]
 
-        final = min(score, 1.0)
+        # 3. Safety
+        safety = self._calculate_safety_penalty(state)
+        breakdown["safety_compliance"] = safety
+        score += safety
+
+        final = max(0.0, min(score, 1.0))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
@@ -240,124 +233,66 @@ class HardGrader(BaseGrader):
     """
     Scoring for multi-camera coordinated incident tasks.
 
-    Rubric (max 1.0):
-        ✓ Multiple cameras visited          0.15
-        ✓ Correct target camera identified   0.15
-        ✓ Temporal reasoning across feeds    0.15
-        ✓ Anomaly frames inspected           0.10
-        ✓ False-positive avoidance           0.10
-        ✓ Correct risk classification        0.15
-        ✓ Correct escalation / dismiss       0.20
+    New Multi-Layer Rubric (max 1.0):
+        1. Correctness (Sparse) - Phase-based accuracy (Detection, Risk, Outcome)
+        2. Efficiency (Dense) - Navigation and optimal camera switching
+        3. Safety (Penalty) - Strategic attention (no action spamming)
     """
 
     def evaluate(self, gt: TaskGroundTruth, state: EpisodeState) -> Dict[str, Any]:
         breakdown: Dict[str, float] = {}
         score = 0.0
 
-        # 1. Multiple cameras visited (at least 2)
+        # 1. Correctness (Sparse) - 0.50
+        # Multi-camera tracking
         unique_cameras = set(state.cameras_visited)
-        if len(unique_cameras) >= 3:
-            breakdown["camera_coverage"] = 0.15
+        if gt.correct_camera in unique_cameras:
+            breakdown["correctness_coverage"] = 0.15
             score += 0.15
-        elif len(unique_cameras) >= 2:
-            breakdown["camera_coverage"] = 0.10
-            score += 0.10
-        else:
-            breakdown["camera_coverage"] = 0.0
+        
+        # Anomaly inspection depth
+        anomaly_inspected = sum(1 for key in state.frames_inspected if gt.frames[int(key.split(":")[1])].anomaly_present)
+        if anomaly_inspected >= 2:
+            breakdown["correctness_inspection"] = 0.20
+            score += 0.20
+            
+        # Risk & Decision
+        risk_payloads = [h.get("payload") for h in state.action_history if h["action_type"] == ActionType.CLASSIFY_RISK]
+        if risk_payloads and risk_payloads[-1] == gt.correct_risk_level.value:
+            if (gt.should_escalate and state.escalated) or (not gt.should_escalate and state.dismissed):
+                breakdown["correctness_outcome"] = 0.25
+                score += 0.25
 
-        # 2. Correct target camera
-        if gt.correct_camera in state.cameras_visited:
-            # Bonus if it was the camera where escalation happened
-            if state.current_camera == gt.correct_camera:
-                breakdown["target_camera"] = 0.15
-                score += 0.15
-            else:
-                breakdown["target_camera"] = 0.10
-                score += 0.10
-        else:
-            breakdown["target_camera"] = 0.0
-
-        # 3. Temporal reasoning — navigated through frames on >=2 cameras
+        # 2. Efficiency (Dense) - 0.40
+        # Camera switching logic
+        switch_count = sum(1 for h in state.action_history if h["action_type"] == ActionType.SWITCH_CAMERA)
+        if 1 <= switch_count <= len(gt.camera_ids) + 1:
+            breakdown["efficiency_switching"] = 0.15
+            score += 0.15
+            
+        # Navigation logic
         nav_actions = [ActionType.REQUEST_PREVIOUS_FRAME, ActionType.REQUEST_NEXT_FRAME]
         nav_count = sum(1 for h in state.action_history if h["action_type"] in nav_actions)
-        switch_count = sum(
-            1 for h in state.action_history
-            if h["action_type"] == ActionType.SWITCH_CAMERA
-        )
-        if nav_count >= 2 and switch_count >= 2:
-            breakdown["temporal_reasoning"] = 0.15
+        if nav_count >= 2:
+            breakdown["efficiency_navigation"] = 0.15
             score += 0.15
-        elif nav_count >= 1 or switch_count >= 1:
-            breakdown["temporal_reasoning"] = 0.08
-            score += 0.08
-        else:
-            breakdown["temporal_reasoning"] = 0.0
+            
+        eff_bonus = self._calculate_efficiency_bonus(state, gt)
+        breakdown["efficiency_speed"] = eff_bonus
+        score += eff_bonus
 
-        # 4. Anomaly frames inspected
-        anomaly_inspected = 0
-        for key in state.frames_inspected:
-            _, idx_str = key.split(":")
-            idx = int(idx_str)
-            if idx < len(gt.frames) and gt.frames[idx].anomaly_present:
-                anomaly_inspected += 1
-        if anomaly_inspected >= 2:
-            breakdown["anomaly_inspection"] = 0.10
-            score += 0.10
-        elif anomaly_inspected == 1:
-            breakdown["anomaly_inspection"] = 0.05
-            score += 0.05
-        else:
-            breakdown["anomaly_inspection"] = 0.0
+        # 3. Safety (Penalties)
+        safety = self._calculate_safety_penalty(state)
+        breakdown["safety_compliance"] = safety
+        score += safety
 
-        # 5. False-positive avoidance — no false escalation of clean cameras
-        false_positives = 0
-        escalation_payloads = self._payloads_for_action(state, ActionType.CLASSIFY_RISK)
-        non_anomaly_cameras = [
-            cid for cid in gt.camera_ids if cid != gt.correct_camera
-        ]
-        # If agent classified risk while on a non-anomaly camera: penalty
-        for h in state.action_history:
-            if h["action_type"] == ActionType.CLASSIFY_RISK:
-                # Check if the step was on a non-threat camera
-                step_idx = h["step"]
-                # We can approximate: if classified risk != correct, it's suspect
-                if h.get("payload") and h["payload"] != gt.correct_risk_level.value:
-                    false_positives += 1
-
-        if false_positives == 0:
-            breakdown["false_positive_avoidance"] = 0.10
-            score += 0.10
-        else:
-            breakdown["false_positive_avoidance"] = max(0.0, 0.10 - 0.05 * false_positives)
-            score += breakdown["false_positive_avoidance"]
-
-        # 6. Risk classification
-        risk_payloads = self._payloads_for_action(state, ActionType.CLASSIFY_RISK)
-        if risk_payloads and risk_payloads[-1] == gt.correct_risk_level.value:
-            breakdown["risk_classification"] = 0.15
-            score += 0.15
-        else:
-            breakdown["risk_classification"] = 0.0
-
-        # 7. Correct escalation / dismissal
-        if gt.should_escalate and state.escalated:
-            breakdown["escalation_decision"] = 0.20
-            score += 0.20
-        elif not gt.should_escalate and state.dismissed:
-            breakdown["escalation_decision"] = 0.20
-            score += 0.20
-        else:
-            breakdown["escalation_decision"] = 0.0
-
-        final = min(score, 1.0)
+        final = max(0.0, min(score, 1.0))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
             "breakdown": breakdown,
             "grader": "HardGrader",
         }
-
-
 # ---------------------------------------------------------------------------
 # Grader Factory / Dispatcher
 # ---------------------------------------------------------------------------

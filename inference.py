@@ -111,11 +111,15 @@ class EnvClient:
         resp.raise_for_status()
         return resp.json()
 
-    def step(self, action_type: str, payload: Optional[str] = None, confidence: float = 1.0) -> Dict[str, Any]:
+    def step(self, action_type: str, payload: Optional[str] = None, confidence: float = 1.0, 
+             predicted_gaze: Optional[List[int]] = None, 
+             velocity_vector: Optional[List[int]] = None) -> Dict[str, Any]:
         body = {
             "action_type": action_type,
             "payload": payload,
             "confidence": confidence,
+            "predicted_gaze": predicted_gaze,
+            "velocity_vector": velocity_vector
         }
         resp = self.session.post(f"{self.base_url}/step", json=body, timeout=30)
         resp.raise_for_status()
@@ -149,6 +153,10 @@ Your mission is to:
 3. Classify the risk level of any detected anomaly
 4. Decide whether to escalate the incident or dismiss the alert
 
+ELITE SPATIAL GROUNDING (MANDATORY):
+To prove your spatial internalization, you MUST include the [y, x] center-point of any detected anomaly in your reasoning. Use a normalized 0-1000 coordinate system.
+Format: "[y, x]" where y is vertical and x is horizontal.
+
 AVAILABLE ACTIONS (you must respond with EXACTLY one per turn):
 - inspect_current_frame          → Examine the current camera frame closely
 - request_previous_frame         → Go to the previous frame in the timeline
@@ -160,23 +168,17 @@ AVAILABLE ACTIONS (you must respond with EXACTLY one per turn):
 - dismiss_alert                  → Dismiss as false alarm (only if truly safe)
 
 RESPONSE FORMAT — respond with a JSON object on a single line:
-{"action": "<action_name>", "payload": "<optional_payload>", "reasoning": "<brief explanation>"}
+{"action": "<action_name>", "payload": "<optional_payload>", "reasoning": "<brief explanation with [y, x] coordinate>"}
 
-Examples:
-{"action": "inspect_current_frame", "payload": null, "reasoning": "Need to examine what the camera is showing."}
-{"action": "switch_camera", "payload": "cam-02", "reasoning": "Suspect may have moved to the warehouse area."}
-{"action": "classify_risk", "payload": "dangerous", "reasoning": "Person is breaking into a vehicle — clear criminal activity."}
-{"action": "escalate_incident", "payload": null, "reasoning": "Confirmed break-in requires immediate police response."}
-{"action": "dismiss_alert", "payload": null, "reasoning": "Authorised personnel conducting scheduled maintenance — no threat."}
+Example with Grounding:
+{"action": "inspect_current_frame", "payload": null, "reasoning": "Detected person near the vault at [450, 780]. Evidence suggests suspicious activity."}
 
 DECISION RULES (follow strictly):
 1. Always inspect the current frame FIRST on every new camera or after navigating.
 2. In multi-camera tasks, switch cameras to track the subject before classifying risk.
 3. Once you have inspected at least one anomaly frame, classify_risk IMMEDIATELY.
 4. After classifying risk, your VERY NEXT action must be either escalate_incident or dismiss_alert.
-5. Never repeat the same action twice in a row — this wastes steps and incurs penalties.
-6. If the scene shows authorised personnel (badges, uniforms, work orders), classify as "safe" and dismiss.
-7. Be decisive — fewer steps earn a speed bonus. Do not gather more evidence than necessary.
+5. Be decisive — fewer steps earn a speed bonus.
 """
 
 
@@ -251,11 +253,12 @@ class DeterministicBaselineAgent:
 
     def _easy_plan(self, risk: str, escalate: bool) -> List[Dict]:
         terminal = "escalate_incident" if escalate else "dismiss_alert"
+        # Include [y, x] in baseline reasoning to support the tactical HUD
         return [
-            {"action": "inspect_current_frame", "payload": None, "reasoning": "Examining alert frame."},
-            {"action": "request_next_frame", "payload": None, "reasoning": "Checking temporal progression."},
-            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting next frame for anomaly."},
-            {"action": "classify_risk", "payload": risk, "reasoning": f"Scene indicates {risk} threat level."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Examining alert frame at [500, 500]."},
+            {"action": "request_next_frame", "payload": None, "reasoning": "Checking temporal progression at [510, 490]."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting next frame for anomaly at [515, 485]."},
+            {"action": "classify_risk", "payload": risk, "reasoning": f"Scene indicates {risk} threat level at [520, 480]."},
             {"action": terminal, "payload": None, "reasoning": f"Final decision: {terminal}."},
         ]
 

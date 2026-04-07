@@ -5,7 +5,7 @@
   "description": "An alert triggers on CAM-02 near the warehouse. Agent must inspect and detect a person tampering with a locked inventory cage, then classify and escalate.",
   "camera_ids": ["cam-02"],
   "correct_camera": "cam-02",
-  "correct_risk_level": "suspicious",
+  "correct_risk_level": "dangerous",
   "should_escalate": true,
   "anomaly_start_frame": 0,
   "total_frames": 2,

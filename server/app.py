@@ -35,7 +35,16 @@ from pydantic import BaseModel, Field
 from config import settings
 from env import SentinelOpsEnvironment
 from grader import grade
-from models import Action, Observation, EpisodeState, ResetResponse, StepResponse, StateResponse
+from models import (
+    Action,
+    ActionType,
+    AlertLevel,
+    EpisodeState,
+    Observation,
+    Reward,
+    TaskDifficulty,
+    TaskGroundTruth,
+)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -81,6 +90,10 @@ DEFAULT_SESSION_ID = "default"
 # session_id → SentinelOpsEnvironment
 _sessions: Dict[str, SentinelOpsEnvironment] = {}
 
+# 🧠 GLOBAL VIGILANCE STORE (Phase 16 persistence)
+# Maps suspect/threat categories to prior risk levels
+GLOBAL_VIGILANCE_DATA: Dict[str, str] = {}
+
 # Completed grade results for /metrics aggregation
 _completed_grades: List[Dict[str, Any]] = []
 
@@ -116,6 +129,9 @@ class StepRequest(BaseModel):
         default=None,
         description="Session identifier. Omit to use the default shared session.",
     )
+    # Elite Predictive Grounding (Phase 15 Council)
+    predicted_gaze: Optional[List[int]] = None
+    velocity_vector: Optional[List[int]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -389,9 +405,7 @@ async def mcp_endpoint(request: Request):
                 result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "reward": reward, "terminated": terminated, "truncated": truncated, "info": info})}]}
             elif tool_name == "state":
                 state = mcp_env.state()
-                result = {"content": [{"type": "text", "text": json.dumps(state.model_dump())}]}
-            else:
-                return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}, "id": rpc_id})
+            return JSONResponse(content={"jsonrpc": "2.0", "result": result, "id": rpc_id})
         except Exception as exc:
             return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32000, "message": str(exc)}, "id": rpc_id})
     elif method == "ping":
@@ -422,6 +436,16 @@ async def reset_endpoint(body: Optional[ResetRequest] = None):
     env = _get_session(session_id)
     try:
         observation, info = env.reset(task_id=task_id)
+        
+        # 🧠 INJECT GLOBAL VIGILANCE (Prior History Memory)
+        # If we have prior history on this facility/suspect type, escalate the posture
+        prior_risk = GLOBAL_VIGILANCE_DATA.get(task_id, "safe")
+        if prior_risk != "safe":
+            info["prior_history"] = f"PRIOR HISTORY: This target was previously classified as '{prior_risk}'."
+            if prior_risk in ["dangerous", "critical"]:
+                observation.alert_level = AlertLevel.HIGH
+                info["tactical_note"] = "VIGILANCE MODE: Persistent threat detected. Safety hardlocks are active."
+                
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
@@ -450,27 +474,34 @@ async def step_endpoint(body: StepRequest):
             action_type=body.action_type,
             payload=body.payload,
             confidence=body.confidence,
+            predicted_gaze=body.predicted_gaze,
+            velocity_vector=body.velocity_vector
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     try:
         obs, reward, terminated, truncated, info = env.step(action)
+        
+        # 🧠 RECORD VIGILANCE (Memory for future episodes)
+        if action.action_type == "classify_risk" and action.payload:
+            GLOBAL_VIGILANCE_DATA[obs.task_id] = action.payload
+            logger.info("Vigilance Recorded: %s -> %s", obs.task_id, action.payload)
+            
+        return JSONResponse(
+            status_code=200,
+            content={
+                "observation": obs.model_dump(),
+                "reward": reward,
+                "terminated": terminated,
+                "truncated": truncated,
+                "info": info,
+                "session_id": session_id,
+            },
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-
-    return JSONResponse(
-        status_code=200,
-        content={
-            "observation": obs.model_dump(),
-            "reward": reward,
-            "terminated": terminated,
-            "truncated": truncated,
-            "info": info,
-            "session_id": session_id,
-        },
-    )
 
 
 @app.get("/state", tags=["openenv"], response_model=None)

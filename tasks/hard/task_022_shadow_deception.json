@@ -1,0 +1,14 @@
+{
+  "task_id": "task_022_shadow_deception",
+  "difficulty": "hard",
+  "description": "SECURITY BREACH: High-contrast decoy detected in warehouse center. Intrusive anomaly observed in low-light peripheral region.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03"],
+  "total_frames": 25,
+  "frames": [
+    { "frame_id": "001", "camera_id": "cam-01", "anomaly_present": false, "anomaly_region": "none" },
+    { "frame_id": "002", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "center", "notes": "DECOY DETECTED: High-contrast object placed to initiate VLM distraction." },
+    { "frame_id": "003", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "top-left", "notes": "REAL THREAT: Subject picking electronic lock in occluded shadow region." },
+    { "frame_id": "004", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "top-left" },
+    { "frame_id": "005", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "top-left" }
+  ]
+}

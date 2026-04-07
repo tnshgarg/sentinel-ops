@@ -1,8 +1,8 @@
 {
   "task_id": "hard-005-multi-camera-pursuit",
   "difficulty": "hard",
-  "title": "Multi-Camera Coordinated Intrusion",
-  "description": "A suspect is seen entering the building lobby (CAM-04), then disappears. The agent must switch between cameras to track the suspect through the corridor (CAM-03), identify them arriving at the warehouse (CAM-02), classify the coordinated threat, and execute emergency escalation.",
+  "title": "Low-Light Multi-Camera Intrusion (Night Vision)",
+  "description": "CRITICAL: Building is in after-hours low-light mode. A suspect is seen entering the building lobby (CAM-04), then disappears into the dark corridors. The agent must activate Night Vision reasoning to track the suspect through the hall (CAM-03), identify them at the warehouse (CAM-02), and classify the coordinated threat.",
   "camera_ids": ["cam-01", "cam-02", "cam-03", "cam-04"],
   "correct_camera": "cam-02",
   "correct_risk_level": "critical",
@@ -11,61 +11,67 @@
   "total_frames": 6,
   "optimal_steps": 7,
   "max_steps": 15,
-  "tags": ["multi-camera", "pursuit", "coordinated-threat", "temporal-reasoning"],
+  "tags": ["multi-camera", "pursuit", "night-vision", "robustness"],
   "frames": [
     {
       "frame_id": "hard-005-f0",
       "camera_id": "cam-04",
-      "description": "Building entrance. A person in dark clothing enters through the glass doors quickly, bypassing the security desk while the guard is distracted.",
+      "description": "Lobby (Night Vision). Low visibility. A person in dark clothing enters glass doors quickly.",
       "anomaly_present": true,
       "anomaly_type": "unauthorized-entry",
       "anomaly_region": "center",
-      "timestamp": "2024-03-15T02:14:00Z"
+      "timestamp": "2024-03-15T02:14:00Z",
+      "visual_mode": "night_vision"
     },
     {
       "frame_id": "hard-005-f1",
       "camera_id": "cam-04",
-      "description": "Building entrance. The person has disappeared from the lobby. The security guard is looking at their phone, unaware.",
+      "description": "Lobby (Night Vision). Person has disappeared. Ghosting artifacts from low-shutter speed.",
       "anomaly_present": true,
       "anomaly_type": "security-breach",
       "anomaly_region": "center",
-      "timestamp": "2024-03-15T02:14:30Z"
+      "timestamp": "2024-03-15T02:14:30Z",
+      "visual_mode": "night_vision"
     },
     {
       "frame_id": "hard-005-f2",
       "camera_id": "cam-03",
-      "description": "Empty corridor. Building is after-hours. Lights are dimmed. No personnel visible.",
+      "description": "Corridor (Night Vision). Empty hallways. High sensor noise.",
       "anomaly_present": false,
       "anomaly_type": null,
       "anomaly_region": null,
-      "timestamp": "2024-03-15T02:15:00Z"
+      "timestamp": "2024-03-15T02:15:00Z",
+      "visual_mode": "night_vision"
     },
     {
       "frame_id": "hard-005-f3",
       "camera_id": "cam-03",
-      "description": "Corridor. The person in dark clothing from the lobby is now visible, moving quickly through the hallway toward the warehouse wing.",
+      "description": "Corridor (Night Vision). Suspect visible moving quickly toward warehouse.",
       "anomaly_present": true,
       "anomaly_type": "intrusion",
       "anomaly_region": "center",
-      "timestamp": "2024-03-15T02:16:15Z"
+      "timestamp": "2024-03-15T02:16:15Z",
+      "visual_mode": "night_vision"
     },
     {
       "frame_id": "hard-005-f4",
       "camera_id": "cam-02",
-      "description": "Warehouse area. No unauthorised personnel visible yet. Equipment is in normal position.",
+      "description": "Warehouse (Night Vision). Equipment visible. No personnel yet.",
       "anomaly_present": false,
       "anomaly_type": null,
       "anomaly_region": null,
-      "timestamp": "2024-03-15T02:16:30Z"
+      "timestamp": "2024-03-15T02:16:30Z",
+      "visual_mode": "night_vision"
     },
     {
       "frame_id": "hard-005-f5",
       "camera_id": "cam-02",
-      "description": "Warehouse. The suspect from the corridor has arrived and is tampering with the high-value inventory cage. They have tools and are working on the lock.",
+      "description": "Warehouse (Night Vision). Suspect tampering with inventory cage in the dark.",
       "anomaly_present": true,
       "anomaly_type": "coordinated-theft",
       "anomaly_region": "right",
-      "timestamp": "2024-03-15T02:17:45Z"
+      "timestamp": "2024-03-15T02:17:45Z",
+      "visual_mode": "night_vision"
     }
   ]
 }
