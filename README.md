@@ -146,6 +146,39 @@ Rewards are **accumulated across the trajectory** (delayed reward), making this 
 
 ---
 
+## 📈 Baseline Results
+
+The `inference.py` script executes a full deterministic baseline using a heuristic-based agent when LLM providers are rate-limited or unavailable. This proves the environment yields a fully scored, deterministic evaluation trajectory that never crashes.
+
+**Execution Configuration:**
+- Inference Time: **under 30 seconds** (for 12 episodes)
+- Environment Setup: Local FastAPI Docker Container
+- Scoring Method: Rubric-based Deterministic Evaluation
+- Number of Errors/Crashes: **Zero**
+
+### Summary
+- **Total tasks:** 12
+- **Average score (all tiers):** 0.750
+- **Total cumulative score:** 9.0
+
+### Per-Task Breakdown
+| Task ID | Tier | Score | Steps Taken | Time (s) |
+|---|---|---|---|---|
+| `easy-001-parking-intrusion` | Easy | **0.70** | 5 | 2.78 |
+| `easy-002-warehouse-access` | Easy | **0.70** | 5 | 2.33 |
+| `easy-007-atm-tampering` | Easy | **1.00** | 5 | 2.76 |
+| `easy-008-night-patrol-false-alarm` | Easy | **0.75** | 5 | 2.01 |
+| `medium-003-corridor-intrusion` | Medium | **0.75** | 7 | 1.76 |
+| `medium-004-lobby-surveillance` | Medium | **0.75** | 7 | 1.79 |
+| `medium-009-rooftop-sabotage` | Medium | **0.75** | 7 | 1.74 |
+| `medium-010-warehouse-progression` | Medium | **0.75** | 7 | 2.30 |
+| `hard-005-multi-camera-pursuit` | Hard | **0.75** | 11 | 1.87 |
+| `hard-006-false-alarm-discrimination` | Hard | **0.50** | 11 | 2.03 |
+| `hard-011-coordinated-theft` | Hard | **0.75** | 11 | 1.86 |
+| `hard-012-authorized-access-false-alarm` | Hard | **0.85** | 11 | 2.02 |
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -181,7 +214,7 @@ uvicorn server.app:app --host 0.0.0.0 --port 7860 --reload
 ```bash
 # Set environment variables
 export API_BASE_URL=https://router.huggingface.co/v1
-export MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct:cheapest
+export MODEL_NAME=meta-llama/Llama-3.2-11B-Vision-Instruct
 export HF_TOKEN=hf_your_token_here
 export ENV_URL=http://localhost:7860
 

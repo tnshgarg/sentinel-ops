@@ -18,9 +18,10 @@ Constraints:
     • Prints reproducible scores
 
 Features:
-    • Model fallback chain: tries primary → cheaper alternatives on 402/429
-    • Uses HF `:cheapest` routing policy to minimise credit consumption
-    • Graceful degradation when all LLM providers are exhausted
+    • Vision-Language Model support (sends base64 frames to VLMs)
+    • Model fallback chain: tries primary → smaller VLMs on 402/429
+    • Deterministic baseline agent when all LLM providers are exhausted
+    • Graceful error handling — never crashes mid-episode
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from openai import OpenAI
 load_dotenv()  # Load .env file so HF_TOKEN etc. are available via os.environ
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.2-11B-Vision-Instruct")
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
@@ -60,17 +61,15 @@ logger = logging.getLogger("sentinelops.inference")
 
 
 # ---------------------------------------------------------------------------
-# Model Fallback Chain
+# Model Fallback Chain — VLMs only (can process base64 images)
 # ---------------------------------------------------------------------------
 
-# Ordered from preferred (best quality) to cheapest (smallest / free-tier).
-# The `:cheapest` suffix tells HF router to pick the cheapest provider.
-# Smaller models consume fewer credits per request.
 MODEL_FALLBACK_CHAIN: List[str] = [
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "meta-llama/Llama-3.1-8B-Instruct",
+    MODEL_NAME,
+    "meta-llama/Llama-3.2-11B-Vision-Instruct",
+    "Qwen/Qwen2-VL-7B-Instruct",
+    "meta-llama/Llama-3.2-3B-Instruct",
     "Qwen/Qwen2.5-7B-Instruct",
-    "meta-llama/Llama-3.2-1B-Instruct",
 ]
 
 # De-duplicate while preserving order
@@ -171,9 +170,9 @@ Examples:
 {"action": "dismiss_alert", "payload": null, "reasoning": "Authorised personnel conducting scheduled maintenance — no threat."}
 
 DECISION RULES (follow strictly):
-1. Inspect the current frame first on every new camera or after navigating to a new frame.
+1. Always inspect the current frame FIRST on every new camera or after navigating.
 2. In multi-camera tasks, switch cameras to track the subject before classifying risk.
-3. Once you have inspected at least one anomaly frame, classify_risk IMMEDIATELY — do not keep navigating.
+3. Once you have inspected at least one anomaly frame, classify_risk IMMEDIATELY.
 4. After classifying risk, your VERY NEXT action must be either escalate_incident or dismiss_alert.
 5. Never repeat the same action twice in a row — this wastes steps and incurs penalties.
 6. If the scene shows authorised personnel (badges, uniforms, work orders), classify as "safe" and dismiss.
@@ -182,22 +181,131 @@ DECISION RULES (follow strictly):
 
 
 # ---------------------------------------------------------------------------
+# Deterministic Baseline Agent (used when LLM API is unavailable)
+# ---------------------------------------------------------------------------
+
+class DeterministicBaselineAgent:
+    """
+    A scripted agent that executes an intelligent action sequence
+    based on task difficulty. Guarantees the episode completes
+    without crashing and demonstrates the environment's scoring.
+
+    This is NOT a random agent — it follows the optimal strategy
+    pattern for each difficulty tier.
+    """
+
+    def __init__(self):
+        self._step_index = 0
+        self._difficulty = "easy"
+        self._camera_ids: List[str] = []
+        self._current_camera_idx = 0
+
+    def reset(self, info: Dict[str, Any]):
+        self._step_index = 0
+        self._difficulty = info.get("difficulty", "easy")
+        self._camera_ids = info.get("camera_ids", ["cam-01"])
+        self._current_camera_idx = 0
+
+    def get_action(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+        """Return the next action based on a pre-planned trajectory."""
+        available = obs.get("available_actions", [])
+        context = obs.get("context", "").lower()
+
+        # Determine risk level from context clues
+        risk = "suspicious"
+        if any(w in context for w in ["breaking", "tamper", "theft", "weapon", "tools", "lock"]):
+            risk = "dangerous"
+        if any(w in context for w in ["coordinated", "armed", "critical"]):
+            risk = "critical"
+        if any(w in context for w in ["authorised", "authorized", "maintenance", "scheduled", "badge"]):
+            risk = "safe"
+
+        # Determine whether to escalate or dismiss
+        should_escalate = risk not in ("safe",)
+
+        if self._difficulty == "easy":
+            plan = self._easy_plan(risk, should_escalate)
+        elif self._difficulty == "medium":
+            plan = self._medium_plan(risk, should_escalate, available)
+        else:
+            plan = self._hard_plan(risk, should_escalate, available)
+
+        if self._step_index < len(plan):
+            action = plan[self._step_index]
+        else:
+            # Safety net: force termination
+            action = {"action": "escalate_incident", "payload": None, "reasoning": "Forcing episode end."}
+
+        self._step_index += 1
+
+        # Validate action is available
+        action_type = action["action"]
+        if action_type not in available and available:
+            # Pick first available non-inspect action to avoid duplicate
+            for fallback in ["request_next_frame", "classify_risk", "escalate_incident"]:
+                if fallback in available:
+                    action = {"action": fallback, "payload": action.get("payload"), "reasoning": "Fallback to available action."}
+                    break
+
+        return action
+
+    def _easy_plan(self, risk: str, escalate: bool) -> List[Dict]:
+        terminal = "escalate_incident" if escalate else "dismiss_alert"
+        return [
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Examining alert frame."},
+            {"action": "request_next_frame", "payload": None, "reasoning": "Checking temporal progression."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting next frame for anomaly."},
+            {"action": "classify_risk", "payload": risk, "reasoning": f"Scene indicates {risk} threat level."},
+            {"action": terminal, "payload": None, "reasoning": f"Final decision: {terminal}."},
+        ]
+
+    def _medium_plan(self, risk: str, escalate: bool, available: List[str]) -> List[Dict]:
+        terminal = "escalate_incident" if escalate else "dismiss_alert"
+        plan = [
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Initial frame inspection."},
+            {"action": "request_next_frame", "payload": None, "reasoning": "Navigating forward in timeline."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting second frame."},
+            {"action": "request_next_frame", "payload": None, "reasoning": "Navigating to third frame."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting potential anomaly frame."},
+            {"action": "classify_risk", "payload": risk, "reasoning": f"Temporal analysis complete. Risk: {risk}."},
+            {"action": terminal, "payload": None, "reasoning": f"Final decision: {terminal}."},
+        ]
+        return plan
+
+    def _hard_plan(self, risk: str, escalate: bool, available: List[str]) -> List[Dict]:
+        terminal = "escalate_incident" if escalate else "dismiss_alert"
+
+        # Build camera switching into the plan
+        cams = self._camera_ids[1:3] if len(self._camera_ids) > 1 else []
+        plan = [
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting initial camera."},
+            {"action": "request_next_frame", "payload": None, "reasoning": "Checking temporal progression."},
+            {"action": "inspect_current_frame", "payload": None, "reasoning": "Inspecting second frame."},
+        ]
+        # Switch to other cameras
+        for cam in cams:
+            plan.append({"action": "switch_camera", "payload": cam, "reasoning": f"Tracking suspect to {cam}."})
+            plan.append({"action": "inspect_current_frame", "payload": None, "reasoning": f"Inspecting feed on {cam}."})
+            plan.append({"action": "request_next_frame", "payload": None, "reasoning": "Checking temporal progression."})
+
+        plan.extend([
+            {"action": "classify_risk", "payload": risk, "reasoning": f"Cross-camera analysis complete. Risk: {risk}."},
+            {"action": terminal, "payload": None, "reasoning": f"Final decision: {terminal}."},
+        ])
+        return plan
+
+
+# ---------------------------------------------------------------------------
 # Smart LLM Caller with Fallback
 # ---------------------------------------------------------------------------
 
 def call_llm_with_fallback(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     model_chain: List[str],
-) -> Tuple[str, str]:
+) -> Tuple[Optional[str], str]:
     """
     Try each model in the fallback chain until one succeeds.
-    Returns (response_text, model_used).
-
-    Handles:
-        - 402 Payment Required  → immediately try next model
-        - 429 Rate Limited      → brief pause then next model
-        - 401 Unauthorized      → try next model
-        - Other errors          → retry once, then next model
+    Returns (response_text, model_used) or (None, "unavailable") if all fail.
     """
     last_error = ""
 
@@ -208,7 +316,7 @@ def call_llm_with_fallback(
                     model=model_id,
                     messages=messages,
                     temperature=TEMPERATURE,
-                    max_tokens=200,  # Reduced to save tokens
+                    max_tokens=200,
                 )
                 text = completion.choices[0].message.content or ""
                 if text.strip():
@@ -219,73 +327,42 @@ def call_llm_with_fallback(
 
                 # 402 = credits depleted → skip to next model immediately
                 if "402" in err_str or "Payment Required" in err_str:
-                    logger.warning(
-                        "Model %s: credits depleted (402). Trying next model...",
-                        model_id,
-                    )
-                    break  # Break inner retry loop, go to next model
-
-                # 429 = rate limited → brief pause then try next
+                    logger.warning("Model %s: credits depleted (402). Next model...", model_id)
+                    break
+                # 429 = rate limited
                 if "429" in err_str or "Rate" in err_str.lower():
-                    logger.warning(
-                        "Model %s: rate limited (429). Trying next model...",
-                        model_id,
-                    )
+                    logger.warning("Model %s: rate limited (429). Next model...", model_id)
                     time.sleep(1)
                     break
-
-                # 401 = auth error → try next model
+                # 401 = auth error
                 if "401" in err_str or "Unauthorized" in err_str:
-                    logger.warning(
-                        "Model %s: unauthorized (401). Trying next model...",
-                        model_id,
-                    )
+                    logger.warning("Model %s: unauthorized (401). Next model...", model_id)
                     break
-
-                # 404 = model not found on this provider
+                # 404 = model not found
                 if "404" in err_str or "Not Found" in err_str:
-                    logger.warning(
-                        "Model %s: not available (404). Trying next model...",
-                        model_id,
-                    )
+                    logger.warning("Model %s: not available (404). Next model...", model_id)
                     break
-
-                # Other errors → retry once with backoff
-                logger.warning(
-                    "Model %s attempt %d failed: %s",
-                    model_id, attempt + 1, err_str[:100],
-                )
+                # Other errors → retry with backoff
+                logger.warning("Model %s attempt %d failed: %s", model_id, attempt + 1, err_str[:100])
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(1)
         else:
-            # All retries for this model exhausted, try next
             continue
 
-    # All models exhausted — return fallback
-    logger.error(
-        "All models exhausted. Last error: %s. Using fallback action.",
-        last_error[:150],
-    )
-    fallback = '{"action": "inspect_current_frame", "payload": null, "reasoning": "All LLM providers unavailable, using fallback."}'
-    return fallback, "fallback"
+    # All models exhausted
+    logger.warning("All LLM models exhausted. Using deterministic baseline agent. Last error: %s", last_error[:100])
+    return None, "unavailable"
 
 
 # ---------------------------------------------------------------------------
 # Agent Logic
 # ---------------------------------------------------------------------------
 
-def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> List[Dict[str, Any]]:
+def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> Any:
     """
-    Build multimodal user content matching the hackathon sample inference script.
-
-    Returns a list of content parts:
-        [{"type": "text", "text": "..."}, {"type": "image_url", "image_url": {"url": "data:..."}}]
-
-    This mirrors the exact pattern shown in the official sample:
-        user_content = [{"type": "text", "text": user_prompt}]
-        screenshot_uri = extract_screenshot_uri(observation)
-        if screenshot_uri:
-            user_content.append({"type": "image_url", "image_url": {"url": screenshot_uri}})
+    Build multimodal user content for VLM inference.
+    Returns list of content parts (text + image) for vision models,
+    or plain text string for text-only fallback.
     """
     obs = obs_data
     parts = [
@@ -309,32 +386,22 @@ def build_user_content(obs_data: Dict[str, Any], info: Dict[str, Any]) -> List[D
 
     text_prompt = "\n".join(parts)
 
-    # Build multimodal content with the frame image by default.
-    # Set ENABLE_VISION=false to fall back to text-only (non-vision models).
-    enable_vision = False
-
-    if enable_vision:
-        user_content: List[Dict[str, Any]] = [
-            {"type": "text", "text": text_prompt},
-        ]
-        frame_b64 = obs.get("frame_b64", "")
-        if frame_b64:
-            screenshot_uri = f"data:image/png;base64,{frame_b64}"
-            user_content.append({
-                "type": "image_url",
-                "image_url": {"url": screenshot_uri},
-            })
-        return user_content
-    else:
-        # Text-only mode — return plain string (works with all models)
-        return text_prompt
+    # Build multimodal content with the frame image
+    user_content: List[Dict[str, Any]] = [
+        {"type": "text", "text": text_prompt},
+    ]
+    frame_b64 = obs.get("frame_b64", "")
+    if frame_b64:
+        screenshot_uri = f"data:image/png;base64,{frame_b64}"
+        user_content.append({
+            "type": "image_url",
+            "image_url": {"url": screenshot_uri},
+        })
+    return user_content
 
 
 def parse_agent_response(text: str) -> Dict[str, Any]:
-    """
-    Parse the LLM's JSON response into an action dict.
-    Handles various formatting issues robustly.
-    """
+    """Parse the LLM's JSON response into an action dict. Handles formatting issues."""
     text = text.strip()
 
     # Try direct JSON parse
@@ -361,18 +428,17 @@ def parse_agent_response(text: str) -> Dict[str, Any]:
 
     # Last resort — try to extract action from plain text
     for action in [
+        "escalate_incident", "dismiss_alert", "classify_risk",
         "inspect_current_frame", "request_previous_frame", "request_next_frame",
-        "switch_camera", "zoom_region", "classify_risk",
-        "escalate_incident", "dismiss_alert",
+        "switch_camera", "zoom_region",
     ]:
         if action in text.lower():
             return {"action": action, "payload": None, "reasoning": "Parsed from text."}
 
-    # Fallback
-    return {"action": "inspect_current_frame", "payload": None, "reasoning": "Fallback action."}
+    return {"action": "inspect_current_frame", "payload": None, "reasoning": "Fallback parse."}
 
 
-def extract_action_and_payload(parsed: Dict[str, Any]) -> tuple:
+def extract_action_and_payload(parsed: Dict[str, Any]) -> Tuple[str, Optional[str]]:
     """Extract (action_type, payload) from parsed response, handling colon-delimited actions."""
     action_raw = parsed.get("action", "inspect_current_frame")
     payload = parsed.get("payload")
@@ -389,129 +455,150 @@ def extract_action_and_payload(parsed: Dict[str, Any]) -> tuple:
     return action_type, payload
 
 
+def safe_env_step(env: EnvClient, action_type: str, payload: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Execute env.step() with error handling.
+    Returns the step result or None if the action failed.
+    """
+    try:
+        return env.step(action_type, payload=payload)
+    except requests.exceptions.HTTPError as exc:
+        logger.warning("env.step(%s, %s) failed: %s", action_type, payload, str(exc)[:100])
+        return None
+    except Exception as exc:
+        logger.warning("env.step(%s, %s) unexpected error: %s", action_type, payload, str(exc)[:80])
+        return None
+
+
 def run_episode(
     env: EnvClient,
     task_id: Optional[str] = None,
     verbose: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Run a single full episode with the LLM agent.
-
-    Returns the grading result dict.
-    """
+    """Run a single full episode. Returns the grading result dict."""
     t0 = time.time()
+    baseline_agent = DeterministicBaselineAgent()
+    using_baseline = False
 
     # Reset environment
     reset_data = env.reset(task_id)
     obs_data = reset_data["observation"]
     info = reset_data.get("info", {})
 
+    # Initialize baseline agent with task info
+    baseline_agent.reset(info)
+
     if verbose:
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info("EPISODE START: %s", info.get("title", "Unknown"))
         logger.info("Task: %s  Difficulty: %s", info.get("task_id"), info.get("difficulty"))
-        logger.info("="*60)
+        logger.info("=" * 60)
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     step = 0
     max_steps = info.get("max_steps", 15)
     terminated = False
     truncated = False
-    active_model = MODEL_CHAIN[0]  # Track which model is working
+    active_model = MODEL_CHAIN[0]
+    last_action_type = None
 
     while not terminated and not truncated and step < max_steps:
         # Check timeout
         elapsed_min = (time.time() - t0) / 60
         if elapsed_min > TIMEOUT_MINUTES:
             logger.warning("Timeout reached (%.1f min). Forcing escalation.", elapsed_min)
-            step_result = env.step("escalate_incident")
-            terminated = step_result.get("terminated", True)
+            safe_env_step(env, "escalate_incident")
             break
 
-        # --- Loop detection: force a terminal decision if agent is stuck ---
-        if len(messages) >= 7:  # at least 3 prior turns (system + 3×user+assistant pairs)
-            recent_actions = [
-                m["content"] for m in messages
-                if m["role"] == "assistant"
-            ][-3:]
-            if len(recent_actions) == 3:
-                parsed_recent = [parse_agent_response(a) for a in recent_actions]
-                recent_types = [p.get("action", "") for p in parsed_recent]
-                # If last 3 actions are identical, force a decision
-                if len(set(recent_types)) == 1:
-                    logger.warning(
-                        "Loop detected: agent repeated '%s' 3 times. "
-                        "Injecting decision-forcing prompt.",
-                        recent_types[0],
-                    )
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            "ALERT: You have repeated the same action 3 times. "
-                            "You MUST now make a final decision. "
-                            "First respond with classify_risk:<level>, then on the very next turn "
-                            "use escalate_incident or dismiss_alert. No more exploration."
-                        ),
-                    })
-                    agent_text, active_model = call_llm_with_fallback(messages, MODEL_CHAIN)
-                    messages.append({"role": "assistant", "content": agent_text})
-                    parsed = parse_agent_response(agent_text)
-                    action_type, payload = extract_action_and_payload(parsed)
-                    try:
-                        step_result = env.step(action_type, payload=payload)
-                    except Exception:
-                        step_result = env.step("escalate_incident")
-                    obs_data = step_result["observation"]
-                    reward = step_result["reward"]
-                    terminated = step_result["terminated"]
-                    truncated = step_result["truncated"]
-                    info = step_result.get("info", {})
-                    step += 1
-                    if terminated or truncated:
-                        break
-                    continue
+        action_type: str
+        payload: Optional[str] = None
 
-        # Build observation content (text-only or multimodal depending on ENABLE_VISION)
-        user_content = build_user_content(obs_data, info)
-        messages.append({"role": "user", "content": user_content})
+        if not using_baseline:
+            # Build observation content for LLM
+            user_content = build_user_content(obs_data, info)
+            messages.append({"role": "user", "content": user_content})
 
-        # Query LLM with fallback chain
-        agent_text, active_model = call_llm_with_fallback(messages, MODEL_CHAIN)
+            # Query LLM with fallback chain
+            agent_text, active_model = call_llm_with_fallback(messages, MODEL_CHAIN)
 
-        # If multimodal mode was used, replace content with text-only
-        # to prevent base64 images from bloating the conversation history
-        if isinstance(user_content, list):
-            text_only = [p for p in user_content if p.get("type") == "text"]
-            messages[-1] = {"role": "user", "content": text_only[0]["text"] if text_only else ""}
-        messages.append({"role": "assistant", "content": agent_text})
+            if agent_text is None:
+                # LLM unavailable — switch to deterministic baseline for rest of episode
+                using_baseline = True
+                logger.info("Switching to deterministic baseline agent for this episode.")
+                # Remove the last user message (LLM never saw it)
+                messages.pop()
+            else:
+                # Replace multimodal content with text-only in history to save tokens
+                if isinstance(user_content, list):
+                    text_only = [p for p in user_content if p.get("type") == "text"]
+                    messages[-1] = {"role": "user", "content": text_only[0]["text"] if text_only else ""}
+                messages.append({"role": "assistant", "content": agent_text})
 
-        # Parse response
-        parsed = parse_agent_response(agent_text)
-        action_type, payload = extract_action_and_payload(parsed)
+                parsed = parse_agent_response(agent_text)
+                action_type, payload = extract_action_and_payload(parsed)
 
-        # Rate-limiting to ensure we do not hit HF free-tier burst limits
-        time.sleep(3)
+        if using_baseline:
+            # Use the deterministic baseline agent
+            baseline_action = baseline_agent.get_action(obs_data)
+            action_type = baseline_action["action"]
+            payload = baseline_action.get("payload")
+            if ":" in action_type:
+                parts = action_type.split(":", 1)
+                action_type = parts[0]
+                if payload is None:
+                    payload = parts[1]
+            active_model = "baseline"
+
+        # Avoid repeating the exact same action (causes server 400)
+        if action_type == last_action_type and action_type == "inspect_current_frame":
+            # Rotate to a different action
+            available = obs_data.get("available_actions", [])
+            for alt in ["request_next_frame", "request_previous_frame", "classify_risk", "escalate_incident"]:
+                if alt in available and alt != last_action_type:
+                    action_type = alt
+                    if alt == "classify_risk":
+                        payload = "suspicious"
+                    break
+
+        # Rate-limiting for API calls
+        if not using_baseline:
+            time.sleep(2)
 
         if verbose:
             model_short = active_model.split("/")[-1][:25] if "/" in active_model else active_model
             logger.info(
-                "Step %d │ %-28s │ Payload: %-8s │ Model: %s",
-                step, action_type, payload, model_short,
+                "Step %d │ %-28s │ Payload: %-12s │ Model: %s",
+                step, action_type, payload or "None", model_short,
             )
 
-        # Execute action
-        try:
-            step_result = env.step(action_type, payload=payload)
-        except Exception as exc:
-            logger.error("Step failed: %s — falling back to inspect.", exc)
-            step_result = env.step("inspect_current_frame")
+        # Execute action with error recovery
+        step_result = safe_env_step(env, action_type, payload=payload)
+
+        if step_result is None:
+            # Action failed — try a safe fallback action
+            available = obs_data.get("available_actions", [])
+            fallback_tried = False
+            for fallback_action in ["request_next_frame", "classify_risk", "escalate_incident", "dismiss_alert"]:
+                if fallback_action in available and fallback_action != action_type:
+                    fb_payload = "suspicious" if fallback_action == "classify_risk" else None
+                    step_result = safe_env_step(env, fallback_action, fb_payload)
+                    if step_result is not None:
+                        logger.info("  Recovered with fallback action: %s", fallback_action)
+                        action_type = fallback_action
+                        fallback_tried = True
+                        break
+            if step_result is None:
+                logger.error("  All fallback actions failed. Skipping step.")
+                step += 1
+                continue
 
         obs_data = step_result["observation"]
         reward = step_result["reward"]
         terminated = step_result["terminated"]
         truncated = step_result["truncated"]
         info = step_result.get("info", {})
+        last_action_type = action_type
 
         if verbose:
             logger.info(
@@ -531,17 +618,19 @@ def run_episode(
 
     grade_result["elapsed_seconds"] = round(elapsed, 2)
     grade_result["total_steps"] = step
+    grade_result["model_used"] = active_model
 
     if verbose:
-        logger.info("-"*60)
+        logger.info("-" * 60)
         logger.info("EPISODE COMPLETE")
         logger.info("Score:    %.4f", grade_result.get("score", 0))
         logger.info("Steps:    %d", step)
         logger.info("Time:     %.1fs", elapsed)
+        logger.info("Model:    %s", active_model)
         if "breakdown" in grade_result:
             for k, v in grade_result["breakdown"].items():
                 logger.info("  %-30s %.3f", k, v)
-        logger.info("-"*60)
+        logger.info("-" * 60)
 
     return grade_result
 
@@ -584,13 +673,13 @@ def main():
     n = len(results) or 1
     avg_score = total_score / n
 
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("AGGREGATE RESULTS")
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("Tasks run:     %d", len(results))
     logger.info("Total score:   %.4f", total_score)
     logger.info("Average score: %.4f", avg_score)
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     # Print reproducible JSON scores
     print("\n--- REPRODUCIBLE SCORES ---")
@@ -601,9 +690,11 @@ def main():
         "per_task": [
             {
                 "task_id": r.get("task_id", "unknown"),
+                "difficulty": r.get("difficulty", "unknown"),
                 "score": r.get("score", 0),
                 "steps": r.get("total_steps", 0),
                 "elapsed_seconds": r.get("elapsed_seconds", 0),
+                "model_used": r.get("model_used", "unknown"),
             }
             for r in results
         ],
