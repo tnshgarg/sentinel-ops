@@ -1,0 +1,44 @@
+{
+  "task_id": "medium-004-lobby-surveillance",
+  "difficulty": "medium",
+  "title": "Suspicious Package in Lobby",
+  "description": "Two people enter the lobby. One leaves a large bag by the security desk unattended. Agent must identify the abandoned package anomaly, assess risk, and decide whether to escalate or dismiss as a false positive.",
+  "camera_ids": ["cam-04"],
+  "correct_camera": "cam-04",
+  "correct_risk_level": "critical",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 3,
+  "optimal_steps": 4,
+  "max_steps": 10,
+  "tags": ["temporal-reasoning", "abandoned-package", "lobby", "crowd"],
+  "frames": [
+    {
+      "frame_id": "medium-004-f0",
+      "camera_id": "cam-04",
+      "description": "Building lobby. Two people entering through glass doors. One has a backpack, other carries large rolling suitcase. Security guard at desk.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T02:16:10Z"
+    },
+    {
+      "frame_id": "medium-004-f1",
+      "camera_id": "cam-04",
+      "description": "Building lobby. The person with the rolling suitcase has left it near the security desk and both people are walking away toward elevators.",
+      "anomaly_present": true,
+      "anomaly_type": "abandoned-package",
+      "anomaly_region": "bottom-right",
+      "timestamp": "2024-03-15T02:17:45Z"
+    },
+    {
+      "frame_id": "medium-004-f2",
+      "camera_id": "cam-04",
+      "description": "Building lobby. The suitcase remains unattended near the security desk. Both people have disappeared. Guard has not noticed.",
+      "anomaly_present": true,
+      "anomaly_type": "unattended-luggage",
+      "anomaly_region": "bottom-right",
+      "timestamp": "2024-03-15T02:19:00Z"
+    }
+  ]
+}

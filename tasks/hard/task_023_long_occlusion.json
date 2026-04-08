@@ -1,0 +1,71 @@
+{
+  "task_id": "hard-023-long-occlusion",
+  "difficulty": "hard",
+  "title": "Long Occlusion Tracking — Warehouse Container",
+  "description": "SECURITY BREACH: A high-risk target was observed entering a large shipping container in the warehouse. The subject will be occluded for an extended period (15+ frames). The agent must track the target's entry point, predict exit vectors, switch cameras to re-acquire the target on emergence, and escalate.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03"],
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 0,
+  "total_frames": 6,
+  "optimal_steps": 7,
+  "max_steps": 14,
+  "tags": ["multi-camera", "occlusion", "tracking", "persistence", "temporal-reasoning"],
+  "frames": [
+    {
+      "frame_id": "hard-023-f0",
+      "camera_id": "cam-01",
+      "description": "Warehouse loading dock. A person in dark clothing moving rapidly toward a large shipping container in the bottom-right quadrant.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorized-entry",
+      "anomaly_region": "bottom-right",
+      "timestamp": "2024-03-17T02:10:00Z"
+    },
+    {
+      "frame_id": "hard-023-f1",
+      "camera_id": "cam-01",
+      "description": "Warehouse loading dock. The person has entered the shipping container. Only their arm is visible at the container doorway on the right side.",
+      "anomaly_present": true,
+      "anomaly_type": "container-entry",
+      "anomaly_region": "right",
+      "timestamp": "2024-03-17T02:10:30Z"
+    },
+    {
+      "frame_id": "hard-023-f2",
+      "camera_id": "cam-01",
+      "description": "Warehouse loading dock. Container door is slightly ajar. No person visible. Subject is fully inside the container — occlusion phase begins.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-17T02:11:00Z"
+    },
+    {
+      "frame_id": "hard-023-f3",
+      "camera_id": "cam-02",
+      "description": "Warehouse interior (rear exit). Empty corridor. Motion sensor log shows no recent triggers.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-17T02:15:00Z"
+    },
+    {
+      "frame_id": "hard-023-f4",
+      "camera_id": "cam-02",
+      "description": "Warehouse interior (rear exit). TARGET RE-ACQUIRED: Subject observed exiting container via rear hatch, carrying equipment. Persistence verified.",
+      "anomaly_present": true,
+      "anomaly_type": "theft-egress",
+      "anomaly_region": "left",
+      "timestamp": "2024-03-17T02:18:00Z"
+    },
+    {
+      "frame_id": "hard-023-f5",
+      "camera_id": "cam-02",
+      "description": "Warehouse interior (rear exit). Subject moving toward emergency exit with stolen equipment. High urgency.",
+      "anomaly_present": true,
+      "anomaly_type": "theft-escape",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-17T02:18:30Z"
+    }
+  ]
+}

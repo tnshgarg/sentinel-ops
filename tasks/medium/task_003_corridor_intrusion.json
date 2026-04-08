@@ -1,0 +1,53 @@
+{
+  "task_id": "medium-003-corridor-intrusion",
+  "difficulty": "medium",
+  "title": "After-Hours Corridor Intrusion",
+  "description": "Multiple frames show an empty corridor followed by an intruder appearing. Agent must track temporal progression, identify when anomaly begins, classify risk, and decide on escalation.",
+  "camera_ids": ["cam-03"],
+  "correct_camera": "cam-03",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 2,
+  "total_frames": 4,
+  "optimal_steps": 5,
+  "max_steps": 10,
+  "tags": ["temporal-reasoning", "intrusion", "corridor", "after-hours"],
+  "frames": [
+    {
+      "frame_id": "medium-003-f0",
+      "camera_id": "cam-03",
+      "description": "Empty building corridor with fluorescent lighting. No people present. Doors closed on both sides.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T02:15:22Z"
+    },
+    {
+      "frame_id": "medium-003-f1",
+      "camera_id": "cam-03",
+      "description": "Same corridor. Still empty. A door on the left side appears slightly ajar that was previously closed.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": "left",
+      "timestamp": "2024-03-15T02:16:40Z"
+    },
+    {
+      "frame_id": "medium-003-f2",
+      "camera_id": "cam-03",
+      "description": "Corridor now shows a person in dark hoodie walking suspiciously near doors, looking around. Dim lighting suggests emergency lights only.",
+      "anomaly_present": true,
+      "anomaly_type": "intrusion",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-15T02:17:55Z"
+    },
+    {
+      "frame_id": "medium-003-f3",
+      "camera_id": "cam-03",
+      "description": "The intruder is now crouching near a locked office door, appears to be attempting entry with tools.",
+      "anomaly_present": true,
+      "anomaly_type": "break-in-attempt",
+      "anomaly_region": "right",
+      "timestamp": "2024-03-15T02:18:30Z"
+    }
+  ]
+}

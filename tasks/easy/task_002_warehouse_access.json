@@ -1,0 +1,35 @@
+{
+  "task_id": "easy-002-warehouse-access",
+  "difficulty": "easy",
+  "title": "Unauthorised Warehouse Access",
+  "description": "An alert triggers on CAM-02 near the warehouse. Agent must inspect and detect a person tampering with a locked inventory cage, then classify and escalate.",
+  "camera_ids": ["cam-02"],
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 0,
+  "total_frames": 2,
+  "optimal_steps": 3,
+  "max_steps": 8,
+  "tags": ["single-camera", "unauthorized-access", "warehouse"],
+  "frames": [
+    {
+      "frame_id": "easy-002-f0",
+      "camera_id": "cam-02",
+      "description": "Warehouse interior. Person in dark clothing tampering with locked cage near inventory shelves. Forklift parked nearby.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorized-access",
+      "anomaly_region": "right",
+      "timestamp": "2024-03-15T02:15:07Z"
+    },
+    {
+      "frame_id": "easy-002-f1",
+      "camera_id": "cam-02",
+      "description": "Warehouse interior. The locked cage has been opened. Person is removing items from the inventory shelf.",
+      "anomaly_present": true,
+      "anomaly_type": "theft",
+      "anomaly_region": "right",
+      "timestamp": "2024-03-15T02:16:30Z"
+    }
+  ]
+}

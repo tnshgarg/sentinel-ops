@@ -1,0 +1,62 @@
+{
+  "task_id": "hard-022-shadow-deception",
+  "difficulty": "hard",
+  "title": "Shadow Deception — Visual Distraction Attack",
+  "description": "SECURITY BREACH: A high-contrast decoy object has been placed in the warehouse center to draw visual attention. Meanwhile, the real intruder is operating in a low-light peripheral region picking an electronic lock. The agent must differentiate the decoy from the real anomaly across multiple camera angles.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03"],
+  "correct_camera": "cam-01",
+  "correct_risk_level": "critical",
+  "should_escalate": true,
+  "anomaly_start_frame": 1,
+  "total_frames": 5,
+  "optimal_steps": 6,
+  "max_steps": 12,
+  "tags": ["multi-camera", "deception", "shadow", "adversarial", "distraction"],
+  "frames": [
+    {
+      "frame_id": "hard-022-f0",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. Standard lighting in center. Peripheral shadows cast by shelving units. No movement detected.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-16T01:30:00Z"
+    },
+    {
+      "frame_id": "hard-022-f1",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. A high-contrast reflective object has appeared in the center aisle — appears deliberately placed. Faint motion blur visible in the top-left shadow region.",
+      "anomaly_present": true,
+      "anomaly_type": "decoy-distraction",
+      "anomaly_region": "center",
+      "timestamp": "2024-03-16T01:31:15Z"
+    },
+    {
+      "frame_id": "hard-022-f2",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. Decoy object still visible in center. A person is now partially visible in the top-left corner, crouched near an access panel.",
+      "anomaly_present": true,
+      "anomaly_type": "intrusion-shadow",
+      "anomaly_region": "top-left",
+      "timestamp": "2024-03-16T01:32:00Z"
+    },
+    {
+      "frame_id": "hard-022-f3",
+      "camera_id": "cam-02",
+      "description": "Side corridor view. Empty. No movement detected. Decoy object not visible from this angle.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-16T01:32:30Z"
+    },
+    {
+      "frame_id": "hard-022-f4",
+      "camera_id": "cam-03",
+      "description": "Rear warehouse angle. Person visible at electronic access panel, using tools to pick lock. Confirmed: real threat in shadow region.",
+      "anomaly_present": true,
+      "anomaly_type": "electronic-lock-picking",
+      "anomaly_region": "top-left",
+      "timestamp": "2024-03-16T01:33:00Z"
+    }
+  ]
+}

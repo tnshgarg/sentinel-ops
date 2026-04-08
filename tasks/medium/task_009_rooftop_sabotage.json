@@ -1,0 +1,62 @@
+{
+  "task_id": "medium-009-rooftop-sabotage",
+  "difficulty": "medium",
+  "title": "Server Room Access — Equipment Sabotage",
+  "description": "CAM-03 monitors the restricted corridor leading to the server room. The camera captures a progression from an empty hallway to an intruder accessing and tampering with critical infrastructure. The agent must navigate frames temporally, identify when the intrusion begins, and escalate.",
+  "camera_ids": ["cam-03"],
+  "correct_camera": "cam-03",
+  "correct_risk_level": "critical",
+  "should_escalate": true,
+  "anomaly_start_frame": 2,
+  "total_frames": 5,
+  "optimal_steps": 6,
+  "max_steps": 12,
+  "tags": ["temporal-reasoning", "sabotage", "critical-infrastructure", "server-room", "corridor"],
+  "frames": [
+    {
+      "frame_id": "medium-009-f0",
+      "camera_id": "cam-03",
+      "description": "Restricted corridor outside the server room. Empty. Security door is closed and locked. Green LED indicators confirm normal status.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-02T02:00:00Z"
+    },
+    {
+      "frame_id": "medium-009-f1",
+      "camera_id": "cam-03",
+      "description": "Same corridor. Still empty but the server room door indicator has changed from green to amber — suggesting a card access attempt. No person visible yet.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-02T02:01:15Z"
+    },
+    {
+      "frame_id": "medium-009-f2",
+      "camera_id": "cam-03",
+      "description": "Restricted corridor. A person in dark clothing has appeared and is using an electronic device to bypass the server room door lock. They are moving quickly and checking over their shoulder.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorised-access-attempt",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-02T02:02:30Z"
+    },
+    {
+      "frame_id": "medium-009-f3",
+      "camera_id": "cam-03",
+      "description": "The server room door is now open. The intruder has entered and is visible through the doorway connecting cables to a network device. This indicates deliberate data exfiltration or sabotage.",
+      "anomaly_present": true,
+      "anomaly_type": "infrastructure-sabotage",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-02T02:03:45Z"
+    },
+    {
+      "frame_id": "medium-009-f4",
+      "camera_id": "cam-03",
+      "description": "Corridor now empty again. Server room door is ajar. Indicator light is red — systems may have been compromised. The intruder has moved deeper into the server room out of camera range.",
+      "anomaly_present": true,
+      "anomaly_type": "active-breach",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-02T02:05:00Z"
+    }
+  ]
+}
