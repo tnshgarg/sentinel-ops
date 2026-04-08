@@ -2,14 +2,65 @@
   "task_id": "task_023_long_occlusion",
   "difficulty": "hard",
   "description": "SECURITY BREACH: High-risk target observed entering large warehouse assets. Intermittent occlusion predicted (15+ frames). Tracking required on predicted exit vectors.",
-  "camera_ids": ["cam-01", "cam-02", "cam-03"],
+  "camera_ids": [
+    "cam-01",
+    "cam-02",
+    "cam-03"
+  ],
   "total_frames": 30,
   "frames": [
-    { "frame_id": "001", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "bottom-right", "notes": "Target heading toward shipping container." },
-    { "frame_id": "002", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "right", "notes": "Target entering asset. Entering occlusion phase." },
-    { "frame_id": "003", "camera_id": "cam-01", "anomaly_present": false, "anomaly_region": "none" },
-    { "frame_id": "018", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "left", "notes": "TARGET RE-ACQUIRED: Subject observed exiting container at cam-02. Persistence verified." },
-    { "frame_id": "019", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "center" },
-    { "frame_id": "020", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "bottom" }
+    {
+      "frame_id": "001",
+      "camera_id": "cam-01",
+      "anomaly_present": true,
+      "anomaly_region": "bottom-right",
+      "description": "Target heading toward shipping container."
+    },
+    {
+      "frame_id": "002",
+      "camera_id": "cam-01",
+      "anomaly_present": true,
+      "anomaly_region": "right",
+      "description": "Target entering asset. Entering occlusion phase."
+    },
+    {
+      "frame_id": "003",
+      "camera_id": "cam-01",
+      "anomaly_present": false,
+      "anomaly_region": "none",
+      "description": "No description provided."
+    },
+    {
+      "frame_id": "018",
+      "camera_id": "cam-02",
+      "anomaly_present": true,
+      "anomaly_region": "left",
+      "description": "TARGET RE-ACQUIRED: Subject observed exiting container at cam-02. Persistence verified."
+    },
+    {
+      "frame_id": "019",
+      "camera_id": "cam-02",
+      "anomaly_present": true,
+      "anomaly_region": "center",
+      "description": "No description provided."
+    },
+    {
+      "frame_id": "020",
+      "camera_id": "cam-02",
+      "anomaly_present": true,
+      "anomaly_region": "bottom",
+      "description": "No description provided."
+    }
+  ],
+  "title": "Long Occlusion Subject Tracking",
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 3,
+  "optimal_steps": 7,
+  "max_steps": 15,
+  "tags": [
+    "occlusion",
+    "tracking"
   ]
 }
