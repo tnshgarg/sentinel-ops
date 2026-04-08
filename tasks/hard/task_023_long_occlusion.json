@@ -1,15 +1,98 @@
 {
-  "task_id": "task_023_long_occlusion",
+  "task_id": "hard-023-long-occlusion",
   "difficulty": "hard",
-  "description": "SECURITY BREACH: High-risk target observed entering large warehouse assets. Intermittent occlusion predicted (15+ frames). Tracking required on predicted exit vectors.",
+  "title": "Long Occlusion — Target Re-Acquisition",
+  "description": "SECURITY BREACH: A high-risk target was observed entering a large shipping container area on CAM-01, then disappeared into occlusion. The agent must track the predicted exit vector, switch to CAM-02 to re-acquire the target emerging from the container, confirm the threat has persisted, and escalate.",
   "camera_ids": ["cam-01", "cam-02", "cam-03"],
-  "total_frames": 30,
+  "correct_camera": "cam-02",
+  "correct_risk_level": "dangerous",
+  "should_escalate": true,
+  "anomaly_start_frame": 0,
+  "total_frames": 9,
+  "optimal_steps": 8,
+  "max_steps": 15,
+  "tags": ["multi-camera", "occlusion", "tracking", "re-acquisition", "hard"],
   "frames": [
-    { "frame_id": "001", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "bottom-right", "notes": "Target heading toward shipping container." },
-    { "frame_id": "002", "camera_id": "cam-01", "anomaly_present": true, "anomaly_region": "right", "notes": "Target entering asset. Entering occlusion phase." },
-    { "frame_id": "003", "camera_id": "cam-01", "anomaly_present": false, "anomaly_region": "none" },
-    { "frame_id": "018", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "left", "notes": "TARGET RE-ACQUIRED: Subject observed exiting container at cam-02. Persistence verified." },
-    { "frame_id": "019", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "center" },
-    { "frame_id": "020", "camera_id": "cam-02", "anomaly_present": true, "anomaly_region": "bottom" }
+    {
+      "frame_id": "hard-023-f0",
+      "camera_id": "cam-01",
+      "description": "Warehouse asset area. A person in dark clothing is observed moving rapidly toward large shipping containers near the far right of the frame. No badge visible.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorised-presence",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-12T02:00:00Z"
+    },
+    {
+      "frame_id": "hard-023-f1",
+      "camera_id": "cam-01",
+      "description": "Warehouse asset area. The person is entering the gap between containers — entering occlusion phase. Tracking is lost in this camera.",
+      "anomaly_present": true,
+      "anomaly_type": "occlusion-entry",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-12T02:00:15Z"
+    },
+    {
+      "frame_id": "hard-023-f2",
+      "camera_id": "cam-01",
+      "description": "Warehouse asset area. Target fully occluded behind containers. No visible movement. Camera coverage ends here.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-12T02:00:30Z"
+    },
+    {
+      "frame_id": "hard-023-f3",
+      "camera_id": "cam-02",
+      "description": "Shipping container exit corridor. Empty. This is the predicted exit route based on container layout.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-12T02:01:00Z"
+    },
+    {
+      "frame_id": "hard-023-f4",
+      "camera_id": "cam-02",
+      "description": "Shipping container exit corridor. TARGET RE-ACQUIRED: The same person in dark clothing is emerging from between containers on the left side. Persistence confirmed — this is the same individual from CAM-01.",
+      "anomaly_present": true,
+      "anomaly_type": "target-reacquired",
+      "anomaly_region": "left",
+      "timestamp": "2024-04-12T02:01:30Z"
+    },
+    {
+      "frame_id": "hard-023-f5",
+      "camera_id": "cam-02",
+      "description": "Shipping container exit corridor. Subject is now moving toward the restricted warehouse exit carrying a bag that appears heavier than when they entered. Active threat confirmed.",
+      "anomaly_present": true,
+      "anomaly_type": "theft-in-progress",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-12T02:02:00Z"
+    },
+    {
+      "frame_id": "hard-023-f6",
+      "camera_id": "cam-02",
+      "description": "Shipping container exit corridor. Subject approaching the loading dock exit. Urgency increasing — potential escape imminent.",
+      "anomaly_present": true,
+      "anomaly_type": "escape-attempt",
+      "anomaly_region": "right",
+      "timestamp": "2024-04-12T02:02:30Z"
+    },
+    {
+      "frame_id": "hard-023-f7",
+      "camera_id": "cam-03",
+      "description": "External loading dock. No unusual vehicles or persons detected at this time.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-12T02:01:00Z"
+    },
+    {
+      "frame_id": "hard-023-f8",
+      "camera_id": "cam-03",
+      "description": "External loading dock. An unmarked vehicle has appeared at the loading dock — possibly a getaway vehicle coordinating with the subject inside.",
+      "anomaly_present": true,
+      "anomaly_type": "coordinated-escape",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-12T02:02:45Z"
+    }
   ]
 }

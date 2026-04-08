@@ -9,7 +9,7 @@
   "should_escalate": true,
   "anomaly_start_frame": 1,
   "total_frames": 3,
-  "optimal_steps": 4,
+  "optimal_steps": 6,
   "max_steps": 10,
   "tags": ["temporal-reasoning", "abandoned-package", "lobby", "crowd"],
   "frames": [

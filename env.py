@@ -259,6 +259,7 @@ class RewardEngine:
                 feedback_parts.append("Zoom did not reveal additional anomaly.")
 
         # --- Elite Predictive Grounding (Phase 15 Council) ---
+        # This is an ADDITIVE bonus independent of the action handler below.
         if action.predicted_gaze and current_frame.anomaly_present:
             # Map string-based region to coordinates for truth comparison
             region_map = {
@@ -274,51 +275,40 @@ class RewardEngine:
             }
             truth_y, truth_x = region_map.get(current_frame.anomaly_region, [500, 500])
             pred_y, pred_x = action.predicted_gaze
-            
-            # --- GAUSSIAN PROBABILITY GRADING (Phase 17 Strike) ---
-            # Euclidean distance in normalized 0-1000 space
+
+            # Gaussian decay: reward = max_bonus * exp(-(dist^2)/(2 * sigma^2))
             dist = ((pred_y - truth_y)**2 + (pred_x - truth_x)**2)**0.5
-            
-            # Use Gaussian decay: reward = max_bonus * exp(-(dist^2)/(2 * sigma^2))
-            sigma_gaze = 75 # Precision threshold (~7.5% frame)
+            sigma_gaze = 75
             grounding_bonus = 0.200 * math.exp(-(dist**2) / (2 * sigma_gaze**2))
-            
             score += grounding_bonus
             feedback_parts.append(f"Gaussian Grounding: Precision score {grounding_bonus:.3f} (dist: {dist:.1f}px).")
-            
-            # Penalize major hallucinations (dist > 250)
+
             if dist > 250:
                 score -= 0.100
                 feedback_parts.append("Grounding Alert: Spatial hallucination detected (major deviation).")
 
-            # --- Phase 16: Temporal Trajectory (Velocity) ---
+            # Phase 16: Temporal Trajectory (Velocity)
             if action.velocity_vector:
-                # Find the next frame in the SAME camera feed to compute velocity truth
                 next_idx = state.current_frame_idx + 1
                 while next_idx < gt.total_frames and gt.frames[next_idx].camera_id != state.current_camera:
                     next_idx += 1
-                
                 if next_idx < gt.total_frames:
                     next_frame = gt.frames[next_idx]
                     next_truth_y, next_truth_x = region_map.get(next_frame.anomaly_region, [500, 500])
-                    
                     truth_dy = next_truth_y - truth_y
                     truth_dx = next_truth_x - truth_x
                     pred_dy, pred_dx = action.velocity_vector
-                    
-                    # --- Phase 17: Gaussian Trajectory Velocity ---
                     v_err = abs(pred_dy - truth_dy) + abs(pred_dx - truth_dx)
                     sigma_vel = 100
                     vel_bonus = 0.100 * math.exp(-(v_err**2) / (2 * sigma_vel**2))
-                    
                     score += vel_bonus
                     if vel_bonus > 0.05:
                         feedback_parts.append(f"Temporal Internalization: Trajectory score {vel_bonus:.3f}.")
                     else:
-                        feedback_parts.append(f"Motion Deviation: Predicted trajectory mismatched actual vector (err: {v_err:.1f}).")
+                        feedback_parts.append(f"Motion Deviation: Predicted trajectory mismatched (err: {v_err:.1f}).")
 
-        # --- Classify risk ---
-        elif at == ActionType.CLASSIFY_RISK:
+        # --- Classify risk --- (independent of predicted_gaze chain above)
+        if at == ActionType.CLASSIFY_RISK:
             classified = action.payload or ""
             if classified == gt.correct_risk_level.value:
                 score += self.table["correct_risk_classification"]
