@@ -61,6 +61,21 @@ logger = logging.getLogger("sentinelops.server")
 # App Factory
 # ---------------------------------------------------------------------------
 
+openapi_tags = [
+    {
+        "name": "openenv",
+        "description": "Standard OpenEnv compliant core API endpoints required for environment integration.",
+    },
+    {
+        "name": "extended",
+        "description": "Additional SentinelOps specific endpoints for fetching tasks, grading, and metrics.",
+    },
+    {
+        "name": "infra",
+        "description": "Health checks, pings, and dashboard UI endpoints.",
+    },
+]
+
 app = FastAPI(
     title="SentinelOps — Incident Response Control Room OpenEnv",
     description=(
@@ -70,7 +85,8 @@ app = FastAPI(
     ),
     version="1.1.0",
     docs_url="/docs",
-    redoc_url="/redoc",
+    redoc_url=None,
+    openapi_tags=openapi_tags,
 )
 
 app.add_middleware(
