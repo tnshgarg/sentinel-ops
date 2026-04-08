@@ -85,7 +85,7 @@ app = FastAPI(
     ),
     version="1.1.0",
     docs_url="/docs",
-    redoc_url=None,
+    redoc_url="/redoc",
     openapi_tags=openapi_tags,
 )
 
