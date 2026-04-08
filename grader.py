@@ -161,7 +161,6 @@ class EasyGrader(BaseGrader):
         final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
-            "max_score": 1.0,
             "breakdown": breakdown,
             "grader": "EasyGrader",
         }
@@ -223,7 +222,6 @@ class MediumGrader(BaseGrader):
         final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
-            "max_score": 1.0,
             "breakdown": breakdown,
             "grader": "MediumGrader",
         }
@@ -301,7 +299,6 @@ class HardGrader(BaseGrader):
         final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
-            "max_score": 1.0,
             "breakdown": breakdown,
             "grader": "HardGrader",
         }
