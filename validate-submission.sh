@@ -35,7 +35,7 @@ CHECKS_TOTAL=4
 # ──────────────────────────────────────────────────────────────
 # Check 1: HF Space Ping
 # ──────────────────────────────────────────────────────────────
-echo -e "${YELLOW}[1/3] HF Space Ping${NC}"
+echo -e "${YELLOW}[1/4] HF Space Ping${NC}"
 if [ -z "$HF_URL" ]; then
     echo -e "  ${FAIL} — No HF Space URL provided."
     echo "  Usage: ./validate-submission.sh <hf_space_url>"
@@ -59,7 +59,7 @@ echo ""
 # ──────────────────────────────────────────────────────────────
 # Check 2: Docker Build
 # ──────────────────────────────────────────────────────────────
-echo -e "${YELLOW}[2/3] Docker Build${NC}"
+echo -e "${YELLOW}[2/4] Docker Build${NC}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKERFILE="$SCRIPT_DIR/Dockerfile"
@@ -102,7 +102,7 @@ echo ""
 # ──────────────────────────────────────────────────────────────
 # Check 3: openenv validate
 # ──────────────────────────────────────────────────────────────
-echo -e "${YELLOW}[3/3] OpenEnv Validate${NC}"
+echo -e "${YELLOW}[3/4] OpenEnv Validate${NC}"
 
 if command -v openenv &> /dev/null; then
     echo "  Running openenv validate ..."

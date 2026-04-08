@@ -92,7 +92,8 @@ class EnvClient:
         return resp.json()
 
 # Global Client
-ENV_URL = "http://localhost:7860"
+import os
+ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 client = EnvClient(ENV_URL)
 
 # --- Session State ---
