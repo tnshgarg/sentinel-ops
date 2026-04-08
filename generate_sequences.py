@@ -110,6 +110,48 @@ def _apply_cctv_hud(img: Image.Image, camera_id: str, timestamp: str,
 
     return img
 
+def _apply_visual_mode(img: Image.Image, mode: str) -> Image.Image:
+    """
+    Apply high-fidelity visual transformations to test VLM robustness.
+    Modes: night_vision, thermal, fog, normal.
+    """
+    if mode == "night_vision":
+        # 1. Darken and Green-shift
+        img = img.convert("L").convert("RGB")  # Grayscale first
+        overlay = Image.new("RGB", img.size, (0, 255, 60))
+        img = Image.blend(img, overlay, 0.2)
+        
+        # 2. Add 'Film Grain' / Sensor Noise
+        import numpy as np
+        arr = np.array(img).astype(np.float32)
+        noise = np.random.normal(0, 15, arr.shape)
+        arr = np.clip(arr + noise, 0, 255).astype(np.uint8)
+        img = Image.fromarray(arr)
+        
+        # 3. Brightness/Contrast adjust
+        img = ImageEnhance.Brightness(img).enhance(0.8)
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+        
+    elif mode == "thermal":
+        # 1. Luminance map to pseudo-color
+        img = img.convert("L")
+        # Custom Thermal Palette mapping (Simplified: Blue -> Red -> Yellow)
+        import numpy as np
+        arr = np.array(img)
+        res = np.zeros((*arr.shape, 3), dtype=np.uint8)
+        res[:, :, 0] = arr  # R
+        res[:, :, 1] = (arr // 2)  # G
+        res[:, :, 2] = (255 - arr) // 2  # B
+        img = Image.fromarray(res)
+        img = ImageEnhance.Contrast(img).enhance(1.8)
+        
+    elif mode == "fog":
+        # Atmospheric haze overlay
+        overlay = Image.new("RGB", img.size, (200, 205, 210))
+        img = Image.blend(img, overlay, 0.4)
+        img = img.filter(ImageFilter.GaussianBlur(1))
+        
+    return img
 
 def _apply_temporal_variation(img: Image.Image, frame_index: int, anomaly_present: bool) -> Image.Image:
     """
@@ -140,11 +182,15 @@ def create_frame_image(task_id: str, frame_data: dict, frame_index: int,
 
     # Load base image
     img = _get_base_image(camera_id, anomaly)
+    
+    # 1. Apply High-Fidelity Visual Mode (Night/Thermal/Fog)
+    v_mode = frame_data.get("visual_mode", "normal")
+    img = _apply_visual_mode(img, v_mode)
 
-    # Apply temporal variation (subtle brightness/contrast shifts)
+    # 2. Apply temporal variation (subtle brightness/contrast shifts)
     img = _apply_temporal_variation(img, frame_index, anomaly)
 
-    # Apply clean CCTV HUD (NO anomaly text)
+    # 3. Apply clean CCTV HUD (NO anomaly text)
     img = _apply_cctv_hud(img, camera_id, timestamp, frame_index, total_frames)
 
     img.save(out_path, format="PNG")

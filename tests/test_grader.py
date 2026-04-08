@@ -121,6 +121,7 @@ class TestEasyGrader:
             risk_classified="dangerous",
             escalated=True,
             frames_inspected=["cam-01:1"],  # anomaly is at frame 1
+            current_step=3,
         )
         result = grade(gt, state)
         assert result["score"] == 1.0
@@ -154,11 +155,12 @@ class TestEasyGrader:
             risk_classified="safe",
             escalated=True,
             frames_inspected=["cam-01:1"],
+            current_step=3,
         )
         result = grade(gt, state)
-        # Should get points for inspection, detection, and escalation, but not risk
-        assert result["breakdown"]["risk_classification"] == 0.0
-        assert result["breakdown"]["escalation_decision"] == 0.30
+        # Should get points for inspection, detection, and decision, but not risk
+        assert result["breakdown"].get("correctness_risk", 0.0) == 0.0
+        assert result["breakdown"].get("correctness_decision", 0.0) == 0.30
 
     def test_correct_dismissal(self):
         gt = _make_gt(TaskDifficulty.EASY, RiskLevel.SAFE, False)
@@ -169,9 +171,10 @@ class TestEasyGrader:
             ],
             dismissed=True,
             frames_inspected=["cam-01:0"],
+            current_step=2,
         )
         result = grade(gt, state)
-        assert result["breakdown"]["escalation_decision"] == 0.30
+        assert result["breakdown"]["correctness_decision"] == 0.30
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +197,7 @@ class TestMediumGrader:
             risk_classified="dangerous",
             escalated=True,
             frames_inspected=["cam-01:0", "cam-01:2"],
+            current_step=3,
         )
         result = grade(gt, state)
         assert result["score"] == 1.0
@@ -210,9 +214,10 @@ class TestMediumGrader:
             risk_classified="dangerous",
             escalated=True,
             frames_inspected=["cam-01:0"],
+            current_step=3,
         )
         result = grade(gt, state)
-        assert result["breakdown"]["temporal_navigation"] == 0.0
+        assert result["breakdown"].get("efficiency_nav", 0.0) == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +252,7 @@ class TestHardGrader:
             risk_classified="critical",
             escalated=True,
             frames_inspected=["cam-04:0", "cam-02:3", "cam-02:5"],
+            current_step=3,
         )
         result = grade(gt, state)
         assert result["score"] == 1.0

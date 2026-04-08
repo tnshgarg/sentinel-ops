@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -256,6 +257,65 @@ class RewardEngine:
             else:
                 score += self.table["unnecessary_zoom"]
                 feedback_parts.append("Zoom did not reveal additional anomaly.")
+
+        # --- Elite Predictive Grounding (Phase 15 Council) ---
+        if action.predicted_gaze and current_frame.anomaly_present:
+            # Map string-based region to coordinates for truth comparison
+            region_map = {
+                "center": [500, 500],
+                "top-left": [250, 250],
+                "top-right": [250, 750],
+                "bottom-left": [750, 250],
+                "bottom-right": [750, 750],
+                "left": [500, 250],
+                "right": [500, 750],
+                "top": [250, 500],
+                "bottom": [750, 500]
+            }
+            truth_y, truth_x = region_map.get(current_frame.anomaly_region, [500, 500])
+            pred_y, pred_x = action.predicted_gaze
+            
+            # --- GAUSSIAN PROBABILITY GRADING (Phase 17 Strike) ---
+            # Euclidean distance in normalized 0-1000 space
+            dist = ((pred_y - truth_y)**2 + (pred_x - truth_x)**2)**0.5
+            
+            # Use Gaussian decay: reward = max_bonus * exp(-(dist^2)/(2 * sigma^2))
+            sigma_gaze = 75 # Precision threshold (~7.5% frame)
+            grounding_bonus = 0.200 * math.exp(-(dist**2) / (2 * sigma_gaze**2))
+            
+            score += grounding_bonus
+            feedback_parts.append(f"Gaussian Grounding: Precision score {grounding_bonus:.3f} (dist: {dist:.1f}px).")
+            
+            # Penalize major hallucinations (dist > 250)
+            if dist > 250:
+                score -= 0.100
+                feedback_parts.append("Grounding Alert: Spatial hallucination detected (major deviation).")
+
+            # --- Phase 16: Temporal Trajectory (Velocity) ---
+            if action.velocity_vector:
+                # Find the next frame in the SAME camera feed to compute velocity truth
+                next_idx = state.current_frame_idx + 1
+                while next_idx < gt.total_frames and gt.frames[next_idx].camera_id != state.current_camera:
+                    next_idx += 1
+                
+                if next_idx < gt.total_frames:
+                    next_frame = gt.frames[next_idx]
+                    next_truth_y, next_truth_x = region_map.get(next_frame.anomaly_region, [500, 500])
+                    
+                    truth_dy = next_truth_y - truth_y
+                    truth_dx = next_truth_x - truth_x
+                    pred_dy, pred_dx = action.velocity_vector
+                    
+                    # --- Phase 17: Gaussian Trajectory Velocity ---
+                    v_err = abs(pred_dy - truth_dy) + abs(pred_dx - truth_dx)
+                    sigma_vel = 100
+                    vel_bonus = 0.100 * math.exp(-(v_err**2) / (2 * sigma_vel**2))
+                    
+                    score += vel_bonus
+                    if vel_bonus > 0.05:
+                        feedback_parts.append(f"Temporal Internalization: Trajectory score {vel_bonus:.3f}.")
+                    else:
+                        feedback_parts.append(f"Motion Deviation: Predicted trajectory mismatched actual vector (err: {v_err:.1f}).")
 
         # --- Classify risk ---
         elif at == ActionType.CLASSIFY_RISK:
@@ -582,6 +642,8 @@ class SentinelOpsEnvironment:
                 "cameras_visited": state.cameras_visited,
                 "camera_ids": gt.camera_ids,
                 "zoom": state.zoom_active,
+                # Explicitly redact region/type to enforce 'Black Box' vision
+                "anomaly_detected": frame_ann.anomaly_present, 
             },
         )
 
