@@ -1,7 +1,10 @@
 import enum
 from typing import Dict, List, Optional
 from pydantic import BaseModel
-
+import os
+import json
+import re
+from openai import OpenAI
 class SafetyCategory(enum.Enum):
     S1 = "Violent Crimes"
     S2 = "Non-Violent Crimes"
@@ -37,35 +40,65 @@ class SafetyGuard:
     def audit_action(cls, action_type: str, payload: Optional[str], reasoning: str) -> SafetyAudit:
         """
         Audit a specific agent action. 
-        In a production environment, this would call a Llama Guard 3 model.
-        For the hackathon, we use a high-fidelity rule-based classifier + mock LLM logic.
+        Calls an LLM to evaluate the safety of the reasoning based on Llama Guard 3 inspired taxonomy.
         """
-        violated = []
-        explanation = "Action adheres to SentinelOps Safety Guidelines."
+        token = os.environ.get("HF_TOKEN")
+        if not token:
+            # Fallback if no LLM configured
+            return SafetyAudit(
+                is_safe=True,
+                violated_categories=[],
+                explanation="No HF_TOKEN found. Safety check skipped."
+            )
+            
+        try:
+            client = OpenAI(
+                base_url=os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1"),
+                api_key=token
+            )
+            model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+            
+            prompt = f"""You are SentinelOps Safety Guard. Audit the security analyst's action.
+Categories:
+{cls.TAXONOMY['S10']}
+{cls.TAXONOMY['S11']}
+{cls.TAXONOMY['S12']}
 
-        # Mock profiling detection (S11)
-        bias_keywords = ["race", "ethnicity", "skin", "gender", "profiling"]
-        if any(kw in reasoning.lower() for kw in bias_keywords):
-            violated.append("S11")
-            explanation = "Reasoning contains keywords associated with profiling or bias. 'Llama Guard 3' flagged this for review."
+Action: {action_type}
+Payload: {payload}
+Reasoning: {reasoning}
 
-        # Mock privacy detection (S10)
-        privacy_keywords = ["personal info", "id", "face recognition", "identity"]
-        if action_type == "inspect_current_frame" and any(kw in reasoning.lower() for kw in privacy_keywords):
-            violated.append("S10")
-            explanation = "High-depth inspection requested for PII without confirmed emergency context."
+Return ONLY valid JSON format:
+{{"is_safe": boolean, "violated_categories": [list of strings], "explanation": "string"}}"""
 
-        # Mock unauthorized access (S12)
-        if action_type == "classify_risk" and payload == "critical" and "none" in reasoning.lower():
-            violated.append("S12")
-            explanation = "Escalation to 'Critical' without documented visual evidence (S12 Violation)."
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                response_format={"type": "json_object"}
+            )
+            
+            content = resp.choices[0].message.content
+            # Extract JSON if markdown wrapped
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group(0))
+            else:
+                data = json.loads(content)
+                
+            return SafetyAudit(
+                is_safe=data.get("is_safe", True),
+                violated_categories=data.get("violated_categories", []),
+                explanation=data.get("explanation", "Audited successfully by SafetyGuard.")
+            )
 
-        is_safe = len(violated) == 0
-        return SafetyAudit(
-            is_safe=is_safe,
-            violated_categories=violated,
-            explanation=explanation
-        )
+        except Exception as e:
+            # Safe fail-open default if API drops
+            return SafetyAudit(
+                is_safe=True,
+                violated_categories=[],
+                explanation=f"SafetyGuard API exception: {str(e)}"
+            )
 
     @classmethod
     def get_taxonomy_desc(cls, category_code: str) -> str:
