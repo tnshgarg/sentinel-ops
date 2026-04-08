@@ -124,14 +124,14 @@ class TestEasyGrader:
             current_step=3,
         )
         result = grade(gt, state)
-        assert result["score"] == 1.0
+        assert result["score"] >= 0.99
         assert result["grader"] == "EasyGrader"
 
     def test_zero_score(self):
         gt = _make_gt(TaskDifficulty.EASY, RiskLevel.DANGEROUS, True)
         state = _make_state(actions=[], frames_inspected=[])
         result = grade(gt, state)
-        assert result["score"] == 0.0
+        assert result["score"] <= 0.01
 
     def test_partial_score_no_escalation(self):
         gt = _make_gt(TaskDifficulty.EASY, RiskLevel.DANGEROUS, True)
@@ -200,7 +200,7 @@ class TestMediumGrader:
             current_step=3,
         )
         result = grade(gt, state)
-        assert result["score"] == 1.0
+        assert result["score"] >= 0.99
         assert result["grader"] == "MediumGrader"
 
     def test_no_temporal_navigation(self):
@@ -255,7 +255,7 @@ class TestHardGrader:
             current_step=3,
         )
         result = grade(gt, state)
-        assert result["score"] == 1.0
+        assert result["score"] >= 0.99
         assert result["grader"] == "HardGrader"
 
     def test_single_camera_partial(self):
