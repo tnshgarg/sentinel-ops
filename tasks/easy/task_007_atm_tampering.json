@@ -9,7 +9,7 @@
   "should_escalate": true,
   "anomaly_start_frame": 1,
   "total_frames": 3,
-  "optimal_steps": 3,
+  "optimal_steps": 5,
   "max_steps": 8,
   "tags": ["single-camera", "atm-tampering", "financial-crime", "parking-lot"],
   "frames": [

@@ -2,56 +2,70 @@
   "task_id": "hard-013-thermal-perimeter-audit",
   "difficulty": "hard",
   "title": "Thermal Perimeter Breach Detection",
-  "description": "CRITICAL: External lighting is dead. Perimeter security is operating solely on Thermal Radiometric cameras (CAM-01). The agent must identify the 'heat bloom' of a person crawling near the outer fence, classify the threat, and escalate.",
+  "description": "CRITICAL: External lighting is dead. Perimeter security is operating solely on Thermal Radiometric cameras (CAM-01 and CAM-02). The agent must identify the 'heat bloom' of a person crawling near the outer fence on CAM-01, switch to CAM-02 for confirmation, classify the threat, and escalate.",
   "camera_ids": ["cam-01", "cam-02"],
   "correct_camera": "cam-01",
   "correct_risk_level": "dangerous",
   "should_escalate": true,
   "anomaly_start_frame": 1,
-  "total_frames": 4,
-  "optimal_steps": 4,
-  "max_steps": 10,
-  "tags": ["thermal", "perimeter", "breach", "radiometric"],
+  "total_frames": 6,
+  "optimal_steps": 9,
+  "max_steps": 15,
+  "tags": ["thermal", "perimeter", "breach", "radiometric", "multi-camera"],
   "frames": [
     {
       "frame_id": "hard-013-f0",
       "camera_id": "cam-01",
-      "description": "Perimeter Fence (Thermal). Cold ground (dark). Fence posts (neutral). No anomalies.",
+      "description": "Perimeter Fence (Thermal). Cold ground (dark). Fence posts (neutral). No anomalies detected.",
       "anomaly_present": false,
       "anomaly_type": null,
-      "anomaly_region": "bottom-left",
-      "timestamp": "2024-03-15T03:00:00Z",
-      "visual_mode": "thermal"
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:00:00Z"
     },
     {
       "frame_id": "hard-013-f1",
       "camera_id": "cam-01",
-      "description": "Perimeter Fence (Thermal). Heat blossom visible in the bottom-left corner near the ground.",
+      "description": "Perimeter Fence (Thermal). Heat blossom visible in the bottom-left corner near the ground — consistent with a human crawling near the fence line.",
       "anomaly_present": true,
       "anomaly_type": "intruder-heat-bloom",
       "anomaly_region": "bottom-left",
-      "timestamp": "2024-03-15T03:00:15Z",
-      "visual_mode": "thermal"
+      "timestamp": "2024-03-15T03:00:15Z"
     },
     {
       "frame_id": "hard-013-f2",
       "camera_id": "cam-01",
-      "description": "Perimeter Fence (Thermal). Heat blossom has moved closer to the fence line.",
+      "description": "Perimeter Fence (Thermal). Heat blossom has moved closer to the fence line. Heat signature is larger — subject is now upright.",
       "anomaly_present": true,
       "anomaly_type": "perimeter-breach",
       "anomaly_region": "center",
-      "timestamp": "2024-03-15T03:00:30Z",
-      "visual_mode": "thermal"
+      "timestamp": "2024-03-15T03:00:30Z"
     },
     {
       "frame_id": "hard-013-f3",
       "camera_id": "cam-01",
-      "description": "Perimeter Fence (Thermal). Human-shaped heat signature visible climbing the fence.",
+      "description": "Perimeter Fence (Thermal). Human-shaped heat signature visible climbing the fence at the center section.",
       "anomaly_present": true,
       "anomaly_type": "perimeter-breach",
       "anomaly_region": "center",
-      "timestamp": "2024-03-15T03:00:45Z",
-      "visual_mode": "thermal"
+      "timestamp": "2024-03-15T03:00:45Z"
+    },
+    {
+      "frame_id": "hard-013-f4",
+      "camera_id": "cam-02",
+      "description": "East Perimeter (Thermal). Overlapping thermal coverage zone. No heat signatures detected on this side of the fence. Normal baseline readings.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-03-15T03:01:00Z"
+    },
+    {
+      "frame_id": "hard-013-f5",
+      "camera_id": "cam-02",
+      "description": "East Perimeter (Thermal). Faint heat signature detectable at the far edge of sensor range — possible continuation of the breach subject moving east.",
+      "anomaly_present": true,
+      "anomaly_type": "perimeter-breach-continuation",
+      "anomaly_region": "right",
+      "timestamp": "2024-03-15T03:01:15Z"
     }
   ]
 }

@@ -1,59 +1,89 @@
 {
-  "task_id": "task_022_shadow_deception",
+  "task_id": "hard-022-shadow-deception",
   "difficulty": "hard",
-  "description": "SECURITY BREACH: High-contrast decoy detected in warehouse center. Intrusive anomaly observed in low-light peripheral region.",
-  "camera_ids": [
-    "cam-01",
-    "cam-02",
-    "cam-03"
-  ],
-  "total_frames": 25,
-  "frames": [
-    {
-      "frame_id": "001",
-      "camera_id": "cam-01",
-      "anomaly_present": false,
-      "anomaly_region": "none",
-      "description": "No description provided."
-    },
-    {
-      "frame_id": "002",
-      "camera_id": "cam-01",
-      "anomaly_present": true,
-      "anomaly_region": "center",
-      "description": "DECOY DETECTED: High-contrast object placed to initiate VLM distraction."
-    },
-    {
-      "frame_id": "003",
-      "camera_id": "cam-01",
-      "anomaly_present": true,
-      "anomaly_region": "top-left",
-      "description": "REAL THREAT: Subject picking electronic lock in occluded shadow region."
-    },
-    {
-      "frame_id": "004",
-      "camera_id": "cam-01",
-      "anomaly_present": true,
-      "anomaly_region": "top-left",
-      "description": "No description provided."
-    },
-    {
-      "frame_id": "005",
-      "camera_id": "cam-01",
-      "anomaly_present": true,
-      "anomaly_region": "top-left",
-      "description": "No description provided."
-    }
-  ],
-  "title": "Shadow Deception / Decoy Threat",
+  "title": "Shadow Deception — Decoy and Real Threat",
+  "description": "SECURITY BREACH: A high-contrast decoy has been placed in the warehouse center (CAM-01) to distract VLM-based surveillance. The real threat is an intruder picking an electronic lock in the occluded shadow region. The agent must avoid the decoy distraction, identify the real threat in the top-left region, and escalate.",
+  "camera_ids": ["cam-01", "cam-02", "cam-03"],
   "correct_camera": "cam-01",
   "correct_risk_level": "critical",
   "should_escalate": true,
   "anomaly_start_frame": 1,
-  "optimal_steps": 7,
+  "total_frames": 8,
+  "optimal_steps": 9,
   "max_steps": 15,
-  "tags": [
-    "decoy",
-    "shadow"
+  "tags": ["multi-camera", "deception", "shadow", "adversarial", "hard"],
+  "frames": [
+    {
+      "frame_id": "hard-022-f0",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. Normal inventory visible on shelves. No personnel detected. Lighting is standard.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-10T01:00:00Z"
+    },
+    {
+      "frame_id": "hard-022-f1",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. A high-contrast reflective object has appeared in the center of the frame — likely a decoy placed to trigger automated detection systems. Look carefully at the shadows.",
+      "anomaly_present": true,
+      "anomaly_type": "decoy-distraction",
+      "anomaly_region": "center",
+      "timestamp": "2024-04-10T01:01:00Z"
+    },
+    {
+      "frame_id": "hard-022-f2",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. The decoy remains visible in center. Closer examination of the top-left shadow region reveals a person crouched at the electronic lock panel — the real threat.",
+      "anomaly_present": true,
+      "anomaly_type": "lock-bypass",
+      "anomaly_region": "top-left",
+      "timestamp": "2024-04-10T01:02:00Z"
+    },
+    {
+      "frame_id": "hard-022-f3",
+      "camera_id": "cam-01",
+      "description": "Warehouse interior. The intruder in the top-left shadow has successfully bypassed the lock and is opening the secure door. The decoy object remains as misdirection.",
+      "anomaly_present": true,
+      "anomaly_type": "unauthorized-entry",
+      "anomaly_region": "top-left",
+      "timestamp": "2024-04-10T01:03:00Z"
+    },
+    {
+      "frame_id": "hard-022-f4",
+      "camera_id": "cam-02",
+      "description": "Corridor adjacent to warehouse. Empty. No activity detected.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-10T01:01:30Z"
+    },
+    {
+      "frame_id": "hard-022-f5",
+      "camera_id": "cam-02",
+      "description": "Corridor adjacent to warehouse. A brief shadow flicker is visible — consistent with someone passing the camera blind spot.",
+      "anomaly_present": true,
+      "anomaly_type": "shadow-movement",
+      "anomaly_region": "left",
+      "timestamp": "2024-04-10T01:02:45Z"
+    },
+    {
+      "frame_id": "hard-022-f6",
+      "camera_id": "cam-03",
+      "description": "External loading dock. Delivery vehicle parked as expected. No unusual activity.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-10T01:00:30Z"
+    },
+    {
+      "frame_id": "hard-022-f7",
+      "camera_id": "cam-03",
+      "description": "External loading dock. Vehicle remains. Dock area clear. No additional persons detected.",
+      "anomaly_present": false,
+      "anomaly_type": null,
+      "anomaly_region": null,
+      "timestamp": "2024-04-10T01:03:30Z"
+    }
   ]
 }

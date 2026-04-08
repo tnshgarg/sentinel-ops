@@ -117,13 +117,17 @@ class EasyGrader(BaseGrader):
         # 1. Correctness (Sparse) - 0.70 total
         # Did the agent inspect the right frame?
         anomaly_detected = False
-        for key in state.frames_inspected:
-            cam, idx_str = key.split(":")
-            idx = int(idx_str)
-            if idx < len(gt.frames) and gt.frames[idx].anomaly_present:
-                anomaly_detected = True
-                break
-        
+        if not gt.should_escalate:
+            # False alarm tasks: detection credit for investigating the scene at all
+            anomaly_detected = bool(state.frames_inspected)
+        else:
+            for key in state.frames_inspected:
+                cam, idx_str = key.split(":")
+                idx = int(idx_str)
+                if idx < len(gt.frames) and gt.frames[idx].anomaly_present:
+                    anomaly_detected = True
+                    break
+
         if anomaly_detected:
             breakdown["correctness_detection"] = 0.20
             score += 0.20
@@ -249,9 +253,17 @@ class HardGrader(BaseGrader):
         if gt.correct_camera in unique_cameras:
             breakdown["correctness_coverage"] = 0.15
             score += 0.15
-        
+
         # Anomaly inspection depth
-        anomaly_inspected = sum(1 for key in state.frames_inspected if gt.frames[int(key.split(":")[1])].anomaly_present)
+        # For false alarm tasks: any frame inspection counts (investigating the scene)
+        # For real threat tasks: must inspect actual anomaly frames
+        if not gt.should_escalate:
+            anomaly_inspected = len(state.frames_inspected)
+        else:
+            anomaly_inspected = sum(
+                1 for key in state.frames_inspected
+                if (lambda idx: idx < len(gt.frames) and gt.frames[idx].anomaly_present)(int(key.split(":")[1]))
+            )
         if anomaly_inspected >= 2:
             breakdown["correctness_inspection"] = 0.20
             score += 0.20
@@ -327,6 +339,10 @@ def grade(
     result["steps_taken"] = state.current_step
     result["optimal_steps"] = gt.optimal_steps
     result["cumulative_env_reward"] = state.cumulative_reward
+
+    # OpenEnv validation requires score strictly in (0, 1) — not 0.0 and not 1.0
+    raw_score = result.get("score", 0.0)
+    result["score"] = round(max(0.001, min(0.999, raw_score)), 4)
 
     logger.info(
         "Graded task=%s  score=%.3f  steps=%d/%d  grader=%s",

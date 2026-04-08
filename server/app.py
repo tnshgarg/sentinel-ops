@@ -404,7 +404,8 @@ async def mcp_endpoint(request: Request):
                 obs, reward, terminated, truncated, info = mcp_env.step(action)
                 result = {"content": [{"type": "text", "text": json.dumps({"observation": obs.model_dump(), "reward": reward, "terminated": terminated, "truncated": truncated, "info": info})}]}
             elif tool_name == "state":
-                state = mcp_env.state()
+                ep_state = mcp_env.state()
+                result = {"content": [{"type": "text", "text": json.dumps({"episode": ep_state.model_dump()})}]}
             return JSONResponse(content={"jsonrpc": "2.0", "result": result, "id": rpc_id})
         except Exception as exc:
             return JSONResponse(content={"jsonrpc": "2.0", "error": {"code": -32000, "message": str(exc)}, "id": rpc_id})

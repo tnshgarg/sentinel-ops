@@ -9,4 +9,3 @@ dist/
 build/
 streamlit.log
 screencapture_page_*.png
-uv.lock
