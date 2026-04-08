@@ -2,7 +2,6 @@
 """
 SentinelOps — Inference Script (Submission Entry Point).
 
-This is the root-level inference script required by the OpenEnv hackathon spec.
 It uses the OpenAI-compatible client to drive an LLM agent through
 SentinelOps episodes, printing reproducible scores.
 
