@@ -42,10 +42,10 @@ TRAJECTORY DATA:
 
 Provide your evaluation in the following JSON format:
 {{
-    "reasoning_score": <float 0-1.0>,
-    "strategy_score": <float 0-1.0>,
-    "decisiveness_score": <float 0-1.0>,
-    "overall_qualitative_score": <float 0-1.0>,
+    "reasoning_score": <float strictly between 0.01 and 0.99>,
+    "strategy_score": <float strictly between 0.01 and 0.99>,
+    "decisiveness_score": <float strictly between 0.01 and 0.99>,
+    "overall_qualitative_score": <float strictly between 0.01 and 0.99>,
     "criticism": "<brief explanation of failures>",
     "commendation": "<brief explanation of strengths>"
 }}
@@ -111,6 +111,9 @@ def main():
         json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group(0))
+            for k in ["reasoning_score", "strategy_score", "decisiveness_score", "overall_qualitative_score"]:
+                if k in result:
+                    result[k] = round(max(0.001, min(0.999, float(result[k]))), 4)
             print(json.dumps(result, indent=2))
         else:
             print("Judge provided non-JSON feedback:")

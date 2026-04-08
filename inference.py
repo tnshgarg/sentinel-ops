@@ -760,7 +760,7 @@ def _finalize_episode(
 
     _emit("[END]", {
         "task_id": grade_result.get("task_id", task_id),
-        "score": round(grade_result.get("score", 0.0), 4),
+        "score": round(max(0.001, min(0.999, grade_result.get("score", 0.0))), 4),
         "steps": step,
         "status": status,
     })
