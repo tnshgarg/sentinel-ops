@@ -42,7 +42,7 @@ class SafetyGuard:
         Audit a specific agent action. 
         Calls an LLM to evaluate the safety of the reasoning based on Llama Guard 3 inspired taxonomy.
         """
-        token = os.environ.get("HF_TOKEN")
+        token = os.environ.get("API_KEY", os.environ.get("HF_TOKEN"))
         if not token:
             # Fallback if no LLM configured
             return SafetyAudit(

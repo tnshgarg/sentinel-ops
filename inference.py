@@ -103,7 +103,7 @@ for _m in [MODEL_NAME] + _FALLBACK_ALTERNATIVES:
 
 client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=HF_TOKEN,
+    api_key=os.environ.get("API_KEY", HF_TOKEN),
 )
 
 

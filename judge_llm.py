@@ -90,7 +90,7 @@ def main():
             "reasoning": h.get("reasoning", "N/A")
         })
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    client = OpenAI(base_url=API_BASE_URL, api_key=os.environ.get("API_KEY", HF_TOKEN))
 
     print(f"--- Sentinel-Judge Evaluation ---")
     print(f"Model: {MODEL_NAME}")
