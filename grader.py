@@ -154,7 +154,7 @@ class EasyGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.0, min(score, 1.0))
+        final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
@@ -216,7 +216,7 @@ class MediumGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.0, min(score, 1.0))
+        final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
@@ -286,7 +286,7 @@ class HardGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.0, min(score, 1.0))
+        final = max(0.001, min(score, 0.999))
         return {
             "score": round(final, 4),
             "max_score": 1.0,
