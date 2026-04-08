@@ -840,7 +840,7 @@ def main():
         "per_task": [
             {
                 "task_id": r.get("task_id", "unknown"),
-                "score": r.get("score", 0),
+                "score": r.get("score", 0.001),
                 "steps": r.get("total_steps", 0),
                 "elapsed_seconds": r.get("elapsed_seconds", 0),
             }

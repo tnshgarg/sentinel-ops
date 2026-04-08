@@ -575,7 +575,7 @@ async def grade_endpoint(session_id: str = Query(default=DEFAULT_SESSION_ID)):
     _completed_grades.append({
         "task_id": result.get("task_id"),
         "difficulty": result.get("difficulty"),
-        "score": result.get("score", 0.0),
+        "score": result.get("score", 0.001),
         "steps_taken": result.get("steps_taken", 0),
         "optimal_steps": result.get("optimal_steps", 0),
     })
