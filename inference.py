@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -74,6 +75,30 @@ def _emit(tag: str, data: dict) -> None:
     flush=True ensures lines appear immediately even under buffering.
     """
     print(f"{tag} {json.dumps(data)}", flush=True)
+
+
+def _safe_score(raw: object, decimals: int = 4) -> float:
+    """
+    Guarantee a score strictly in (0, 1) before emission.
+
+    Handles NaN, ±Inf, missing values, and post-rounding boundary drift.
+    This is the single authoritative normalization used at every score output site.
+    """
+    try:
+        value = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.5
+    if math.isnan(value):
+        return 0.5  # NaN has no meaningful magnitude; use midpoint
+    # ±Inf fall through to clamping below (min/max handles them correctly)
+    clamped = max(0.001, min(0.999, value))
+    result = round(clamped, decimals)
+    # Re-check after rounding: float representation could drift to a boundary.
+    if result <= 0.0:
+        return 0.001
+    if result >= 1.0:
+        return 0.999
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -760,9 +785,7 @@ def _finalize_episode(
 
     _emit("[END]", {
         "task_id": grade_result.get("task_id", task_id),
-
-        "score": round(max(0.001, min(0.999, float(grade_result.get("score", 0.5)))), 4),
-
+        "score": _safe_score(grade_result.get("score", 0.5)),
         "steps": step,
         "status": status,
     })
@@ -838,12 +861,11 @@ def main():
     output = {
         "total_tasks": len(results),
         "total_score": round(total_score, 4),
-        "average_score": round(avg_score, 4),
+        "average_score": _safe_score(avg_score),
         "per_task": [
             {
                 "task_id": r.get("task_id", "unknown"),
-                "score": round(max(0.001, min(0.999, float(r.get("score", 0.5)))), 4),
-
+                "score": _safe_score(r.get("score", 0.5)),
                 "steps": r.get("total_steps", 0),
                 "elapsed_seconds": r.get("elapsed_seconds", 0),
             }

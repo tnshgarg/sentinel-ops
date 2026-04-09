@@ -16,18 +16,44 @@ The top-level ``grade()`` function auto-selects the appropriate strategy.
 from __future__ import annotations
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from models import (
     ActionType,
     EpisodeState,
-    RiskLevel,
     TaskDifficulty,
     TaskGroundTruth,
 )
 
 logger = logging.getLogger("sentinelops.grader")
+
+_SCORE_LO = 0.001
+_SCORE_HI = 0.999
+
+
+def safe_score(raw: float, decimals: int = 4) -> float:
+    """
+    Return a score guaranteed to satisfy the strict OpenEnv constraint (0 < s < 1).
+
+    Handles all edge cases:
+    - NaN            → falls back to midpoint (0.5); no meaningful magnitude
+    - ±Inf           → clamped to _SCORE_HI / _SCORE_LO respectively
+    - Out-of-range   → clamped to [_SCORE_LO, _SCORE_HI]
+    - Post-rounding boundary drift → re-checked after round()
+    """
+    if math.isnan(raw):
+        return 0.5  # NaN has no meaningful magnitude; use midpoint
+    # ±Inf fall through to clamping below (min/max handles them correctly)
+    clamped = max(_SCORE_LO, min(_SCORE_HI, raw))
+    result = round(clamped, decimals)
+    # Guard against floating-point drift pushing rounded value to a boundary.
+    if result <= 0.0:
+        return _SCORE_LO
+    if result >= 1.0:
+        return _SCORE_HI
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +64,7 @@ class BaseGrader(ABC):
     """
     Abstract grader that evaluates an agent's episode trajectory.
 
-    Subclasses implement ``evaluate()`` to return a score ∈ [0, 1]
+    Subclasses implement ``evaluate()`` to return a score strictly in (0, 1)
     along with a detailed breakdown dictionary.
     """
 
@@ -52,7 +78,7 @@ class BaseGrader(ABC):
         Score the completed episode.
 
         Returns:
-            dict with at-minimum keys ``"score"`` (float 0–1) and
+            dict with at-minimum keys ``"score"`` (float strictly in (0, 1)) and
             ``"breakdown"`` (dict of component scores).
         """
         raise NotImplementedError
@@ -103,18 +129,22 @@ class EasyGrader(BaseGrader):
     """
     Scoring for single-camera anomaly detection tasks.
 
-    Rubric (max 1.0):
-        ✓ Inspected frame            0.15
-        ✓ Detected anomaly frame     0.25
-        ✓ Correct risk classification 0.30
-        ✓ Correct escalation / dismiss 0.30
+    Rubric (raw max 1.0, output clamped to (0.001, 0.999)):
+        Correctness (0.80):
+            ✓ Anomaly detection          0.20
+            ✓ Correct risk classification 0.30
+            ✓ Correct escalation/dismiss  0.30
+        Efficiency (0.20):
+            ✓ Frame inspection protocol  0.10
+            ✓ Speed bonus (optimal steps) 0.10
+        Safety: penalty up to -0.15
     """
 
     def evaluate(self, gt: TaskGroundTruth, state: EpisodeState) -> Dict[str, Any]:
         breakdown: Dict[str, float] = {}
         score = 0.0
 
-        # 1. Correctness (Sparse) - 0.70 total
+        # 1. Correctness (Sparse) - 0.80 total
         # Did the agent inspect the right frame?
         anomaly_detected = False
         if not gt.should_escalate:
@@ -158,10 +188,8 @@ class EasyGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.001, min(score, 0.999))
         return {
-            "score": round(final, 4),
-            "max_score": 0.99,
+            "score": safe_score(score),
             "breakdown": breakdown,
             "grader": "EasyGrader",
         }
@@ -175,12 +203,15 @@ class MediumGrader(BaseGrader):
     """
     Scoring for multi-frame temporal reasoning tasks.
 
-    Rubric (max 1.0):
-        ✓ Inspected frames                 0.10
-        ✓ Correct temporal navigation       0.20
-        ✓ Anomaly onset identified          0.20
-        ✓ Correct risk classification       0.25
-        ✓ Correct escalation / dismiss      0.25
+    Rubric (raw max 1.00, output clamped to (0.001, 0.999)):
+        Correctness (0.70):
+            ✓ Anomaly onset identified          0.20
+            ✓ Correct risk classification       0.25
+            ✓ Correct escalation / dismiss      0.25
+        Efficiency (0.30):
+            ✓ Temporal navigation (≥2 moves)    0.10
+            ✓ Speed bonus ×2 (optimal steps)    0.20
+        Safety: penalty up to -0.15
     """
 
     def evaluate(self, gt: TaskGroundTruth, state: EpisodeState) -> Dict[str, Any]:
@@ -220,10 +251,8 @@ class MediumGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.001, min(score, 0.999))
         return {
-            "score": round(final, 4),
-            "max_score": 0.99,
+            "score": safe_score(score),
             "breakdown": breakdown,
             "grader": "MediumGrader",
         }
@@ -237,17 +266,23 @@ class HardGrader(BaseGrader):
     """
     Scoring for multi-camera coordinated incident tasks.
 
-    New Multi-Layer Rubric (max 1.0):
-        1. Correctness (Sparse) - Phase-based accuracy (Detection, Risk, Outcome)
-        2. Efficiency (Dense) - Navigation and optimal camera switching
-        3. Safety (Penalty) - Strategic attention (no action spamming)
+    Rubric (raw max 1.00, output clamped to (0.001, 0.999)):
+        Correctness (0.60):
+            ✓ Correct camera visited            0.15
+            ✓ Anomaly inspection depth (≥2)     0.20
+            ✓ Risk + decision outcome           0.25
+        Efficiency (0.40):
+            ✓ Camera switching (1–N+1 switches) 0.15
+            ✓ Frame navigation (≥2 moves)       0.15
+            ✓ Speed bonus (optimal steps)       0.10
+        Safety: penalty up to -0.15
     """
 
     def evaluate(self, gt: TaskGroundTruth, state: EpisodeState) -> Dict[str, Any]:
         breakdown: Dict[str, float] = {}
         score = 0.0
 
-        # 1. Correctness (Sparse) - 0.50
+        # 1. Correctness (Sparse) - 0.60
         # Multi-camera tracking
         unique_cameras = set(state.cameras_visited)
         if gt.correct_camera in unique_cameras:
@@ -298,13 +333,13 @@ class HardGrader(BaseGrader):
         breakdown["safety_compliance"] = safety
         score += safety
 
-        final = max(0.001, min(score, 0.999))
         return {
-            "score": round(final, 4),
-            "max_score": 0.99,
+            "score": safe_score(score),
             "breakdown": breakdown,
             "grader": "HardGrader",
         }
+
+
 # ---------------------------------------------------------------------------
 # Grader Factory / Dispatcher
 # ---------------------------------------------------------------------------
@@ -341,8 +376,7 @@ def grade(
     result["cumulative_env_reward"] = state.cumulative_reward
 
     # OpenEnv validation requires score strictly in (0, 1) — not 0.0 and not 1.0
-    raw_score = result.get("score", 0.0)
-    result["score"] = round(max(0.001, min(0.999, raw_score)), 4)
+    result["score"] = safe_score(result.get("score", 0.5))
 
     logger.info(
         "Graded task=%s  score=%.3f  steps=%d/%d  grader=%s",
