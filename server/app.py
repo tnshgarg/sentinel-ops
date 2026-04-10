@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
@@ -34,7 +35,7 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from env import SentinelOpsEnvironment
-from grader import grade
+from grader import grade, safe_score as _safe_score
 from models import (
     Action,
     ActionType,
@@ -569,15 +570,15 @@ async def grade_endpoint(session_id: str = Query(default=DEFAULT_SESSION_ID)):
         raise HTTPException(status_code=500, detail="No ground-truth loaded.")
 
     result = grade(gt, state)
+    # Guarantee score is strictly in (0, 1) before returning — validator requirement
+    result["score"] = _safe_score(result.get("score", 0.5))
     result["session_id"] = session_id
 
     # Record for /metrics
     _completed_grades.append({
         "task_id": result.get("task_id"),
         "difficulty": result.get("difficulty"),
-
-        "score": round(max(0.001, min(0.999, float(result.get("score", 0.5)))), 4),
-
+        "score": result["score"],  # already clamped above
         "steps_taken": result.get("steps_taken", 0),
         "optimal_steps": result.get("optimal_steps", 0),
     })
@@ -621,7 +622,7 @@ async def metrics_endpoint():
         n = stats["count"]
         diff_summary[diff] = {
             "episodes": n,
-            "average_score": round(stats["total_score"] / n, 4),
+            "average_score": _safe_score(stats["total_score"] / n),
             "average_steps": round(stats["total_steps"] / n, 2),
             "average_optimal_steps": round(stats["total_optimal"] / n, 2),
             "efficiency_ratio": round(
@@ -631,9 +632,9 @@ async def metrics_endpoint():
 
     return {
         "total_episodes": total,
-        "average_score": round(total_score / total, 4),
-        "best_score": max(g["score"] for g in _completed_grades),
-        "worst_score": min(g["score"] for g in _completed_grades),
+        "average_score": _safe_score(total_score / total),
+        "best_score": _safe_score(max(g["score"] for g in _completed_grades)),
+        "worst_score": _safe_score(min(g["score"] for g in _completed_grades)),
         "by_difficulty": diff_summary,
         "active_sessions": len(_sessions),
     }

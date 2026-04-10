@@ -65,7 +65,7 @@ class SentinelOpsSettings(BaseSettings):
         description="Base URL for the OpenAI-compatible inference endpoint.",
     )
     model_name: str = Field(
-        default="meta-llama/Llama-3.3-70B-Instruct",
+        default="Qwen/Qwen2.5-72B-Instruct",
         description="Model identifier used for agentic inference.",
     )
     hf_token: str = Field(
