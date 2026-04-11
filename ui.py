@@ -170,7 +170,7 @@ with st.sidebar:
 # --- Main Dashboard ---
 if st.session_state.obs is None:
     st.markdown("<h1 class='main-title'>SentinelOps Terminal</h1>", unsafe_allow_html=True)
-    st.markdown("### Interactive Incident Response & AI Safety Environment")
+    st.markdown("### Interactive Incident Response & AI Safety Environment.")
     
     st.markdown("<div class='glass-panel' style='padding:1.5rem; margin-top:1rem; border-color:rgba(99,102,241,0.3)'>", unsafe_allow_html=True)
     st.subheader("🏁 Analyst Deployment Protocol")
