@@ -237,7 +237,7 @@ async def root():
   <div class="header">
     <div class="shield">🛡️</div>
     <h1>SentinelOps</h1>
-    <p class="subtitle">Interactive Incident Response Control Room — a multi-step agentic RL environment where AI agents monitor surveillance feeds, detect anomalies, and escalate incidents in real time.</p>
+    <p class="subtitle">Interactive Incident Response Control Room — a multi-step agentic RL environment where AI agents monitor surveillance feeds, detect anomalies and escalate incidents in real time.</p>
     <div class="badge-row">
       <span class="badge green"><span class="live-dot"></span>Live</span>
       <span class="badge blue">OpenEnv Compatible</span>
