@@ -91,13 +91,13 @@ def _safe_score(raw: object, decimals: int = 4) -> float:
     if math.isnan(value):
         return 0.5  # NaN has no meaningful magnitude; use midpoint
     # ±Inf fall through to clamping below (min/max handles them correctly)
-    clamped = max(0.01, min(0.99, value))
+    clamped = max(0.05, min(0.94, value))
     result = round(clamped, decimals)
     # Re-check after rounding: float representation could drift to a boundary.
     if result <= 0.0:
-        return 0.01
+        return 0.05
     if result >= 1.0:
-        return 0.99
+        return 0.94
     return result
 
 
