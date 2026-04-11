@@ -25,7 +25,7 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import DEFAULT_REWARD_TABLE, FRAMES_DIR, SEQUENCES_DIR, TASKS_DIR, settings
+from config import DEFAULT_REWARD_TABLE, FRAMES_DIR, SEQUENCES_DIR, TASKS_DIR, safe_score, settings
 from models import (
     Action,
     ActionType,
@@ -356,10 +356,10 @@ class RewardEngine:
         cumulative = state.cumulative_reward + score
 
         return Reward(
-            score=round(score, 4),
+            score=safe_score(score),
             feedback=" | ".join(feedback_parts) if feedback_parts else "No specific feedback.",
             done=done,
-            cumulative_score=round(cumulative, 4),
+            cumulative_score=safe_score(cumulative),
         )
 
 
@@ -470,7 +470,9 @@ class SentinelOpsEnvironment:
             state.done = True
             if truncated:
                 # Penalise for not resolving within time limit
-                state.cumulative_reward += DEFAULT_REWARD_TABLE["missed_anomaly"] * 0.5
+                state.cumulative_reward = safe_score(
+                    state.cumulative_reward + DEFAULT_REWARD_TABLE["missed_anomaly"] * 0.5
+                )
 
         obs = self._build_observation()
         info = {

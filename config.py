@@ -103,5 +103,39 @@ class SentinelOpsSettings(BaseSettings):
     }
 
 
+# ---------------------------------------------------------------------------
+# Scoring Utilities
+# ---------------------------------------------------------------------------
+
+SCORE_LO = 0.001
+SCORE_HI = 0.999
+
+def safe_score(raw: object, decimals: int = 4) -> float:
+    """
+    Return a score guaranteed to satisfy the strict OpenEnv constraint (0 < s < 1).
+
+    Handles NaN, ±Inf, missing values, and post-rounding boundary drift.
+    """
+    import math
+    try:
+        value = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.5
+    
+    if math.isnan(value):
+        return 0.5
+        
+    # ±Inf fall through to clamping below (min/max handles them correctly)
+    clamped = max(SCORE_LO, min(SCORE_HI, value))
+    result = round(clamped, decimals)
+    
+    # Guard against post-rounding drift
+    if result <= 0.0:
+        return SCORE_LO
+    if result >= 1.0:
+        return SCORE_HI
+    return result
+
+
 # Singleton — importable as `from config import settings`
 settings = SentinelOpsSettings()
