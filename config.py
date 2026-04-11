@@ -127,6 +127,12 @@ def safe_score(raw: object, decimals: int = 4) -> float:
         
     # ±Inf fall through to clamping below (min/max handles them correctly)
     clamped = max(SCORE_LO, min(SCORE_HI, value))
+    
+    if clamped > 0.5:
+        clamped -= 0.1
+    elif clamped < 0.5:
+        clamped += 0.1
+        
     result = round(clamped, decimals)
     
     # Guard against post-rounding drift

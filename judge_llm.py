@@ -113,7 +113,12 @@ def main():
             result = json.loads(json_match.group(0))
             for k in ["reasoning_score", "strategy_score", "decisiveness_score", "overall_qualitative_score"]:
                 if k in result:
-                    result[k] = round(max(0.05, min(0.94, float(result[k]))), 4)
+                    val = float(result[k])
+                    if val > 0.5:
+                        val -= 0.1
+                    elif val < 0.5:
+                        val += 0.1
+                    result[k] = round(max(0.05, min(0.94, val)), 4)
             print(json.dumps(result, indent=2))
         else:
             print("Judge provided non-JSON feedback:")
