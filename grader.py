@@ -29,8 +29,8 @@ from models import (
 
 logger = logging.getLogger("sentinelops.grader")
 
-_SCORE_LO = 0.001
-_SCORE_HI = 0.999
+_SCORE_LO = 0.01
+_SCORE_HI = 0.99
 
 
 def safe_score(raw: float, decimals: int = 4) -> float:
