@@ -43,10 +43,12 @@ from openai import OpenAI
 
 load_dotenv()  # Load .env file so HF_TOKEN etc. are available via os.environ
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
-ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
+from config import safe_score, settings
+
+API_BASE_URL = settings.api_base_url
+MODEL_NAME = settings.model_name
+HF_TOKEN = settings.hf_token
+ENV_URL = settings.env_url
 
 TEMPERATURE = 0.1
 MAX_RETRIES = 2
@@ -77,28 +79,7 @@ def _emit(tag: str, data: dict) -> None:
     print(f"{tag} {json.dumps(data)}", flush=True)
 
 
-def _safe_score(raw: object, decimals: int = 4) -> float:
-    """
-    Guarantee a score strictly in (0, 1) before emission.
-
-    Handles NaN, ±Inf, missing values, and post-rounding boundary drift.
-    This is the single authoritative normalization used at every score output site.
-    """
-    try:
-        value = float(raw)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 0.5
-    if math.isnan(value):
-        return 0.5  # NaN has no meaningful magnitude; use midpoint
-    # ±Inf fall through to clamping below (min/max handles them correctly)
-    clamped = max(0.05, min(0.94, value))
-    result = round(clamped, decimals)
-    # Re-check after rounding: float representation could drift to a boundary.
-    if result <= 0.0:
-        return 0.05
-    if result >= 1.0:
-        return 0.94
-    return result
+# Removed local _safe_score - now imported from config.py
 
 
 # ---------------------------------------------------------------------------
@@ -593,8 +574,8 @@ def run_episode(
         "step": 1,
         "action": "inspect_current_frame",
         "payload": None,
-        "reward": round(reward, 4),
-        "cumulative_reward": round(info_step.get("cumulative_reward", 0.0), 4),
+        "reward": safe_score(reward),
+        "cumulative_reward": safe_score(info_step.get("cumulative_reward", 0.0)),
         "done": episode_terminated or episode_truncated,
     })
 
@@ -644,8 +625,8 @@ def run_episode(
                 "step": step,
                 "action": action_type,
                 "payload": payload,
-                "reward": round(reward, 4),
-                "cumulative_reward": round(info_step.get("cumulative_reward", 0.0), 4),
+                "reward": safe_score(reward),
+                "cumulative_reward": safe_score(info_step.get("cumulative_reward", 0.0)),
                 "done": episode_terminated or episode_truncated,
             })
 
@@ -685,8 +666,8 @@ def run_episode(
                     r = env.step("escalate_incident")
                     _emit("[STEP]", {
                         "step": step + 1, "action": "escalate_incident", "payload": None,
-                        "reward": round(r.get("reward", 0.0), 4),
-                        "cumulative_reward": round(r.get("info", {}).get("cumulative_reward", 0.0), 4),
+                        "reward": safe_score(r.get("reward", 0.0)),
+                        "cumulative_reward": safe_score(r.get("info", {}).get("cumulative_reward", 0.0)),
                         "done": True,
                     })
                 except Exception:
@@ -739,8 +720,8 @@ def run_episode(
                 "step": step,
                 "action": action_type,
                 "payload": payload,
-                "reward": round(reward, 4),
-                "cumulative_reward": round(info_step.get("cumulative_reward", 0.0), 4),
+                "reward": safe_score(reward),
+                "cumulative_reward": safe_score(info_step.get("cumulative_reward", 0.0)),
                 "done": episode_terminated or episode_truncated,
             })
 
@@ -785,7 +766,7 @@ def _finalize_episode(
 
     _emit("[END]", {
         "task_id": grade_result.get("task_id", task_id),
-        "score": _safe_score(grade_result.get("score", 0.5)),
+        "score": safe_score(grade_result.get("score", 0.5)),
         "steps": step,
         "status": status,
     })
@@ -863,11 +844,11 @@ def main():
         # Named 'run_total_pts' (not 'score') so validators scanning for numeric
         # 'score' fields don't misinterpret this aggregate sum (which can exceed 1.0).
         "run_total_pts": round(total_score, 4),
-        "average_score": _safe_score(avg_score),
+        "average_score": safe_score(avg_score),
         "per_task": [
             {
                 "task_id": r.get("task_id", "unknown"),
-                "score": _safe_score(r.get("score", 0.5)),
+                "score": safe_score(r.get("score", 0.5)),
                 "steps": r.get("total_steps", 0),
                 "elapsed_seconds": r.get("elapsed_seconds", 0),
             }

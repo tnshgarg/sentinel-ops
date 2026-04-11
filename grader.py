@@ -20,6 +20,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from config import safe_score, SCORE_LO, SCORE_HI
 from models import (
     ActionType,
     EpisodeState,
@@ -29,31 +30,7 @@ from models import (
 
 logger = logging.getLogger("sentinelops.grader")
 
-_SCORE_LO = 0.05
-_SCORE_HI = 0.94
-
-
-def safe_score(raw: float, decimals: int = 4) -> float:
-    """
-    Return a score guaranteed to satisfy the strict OpenEnv constraint (0 < s < 1).
-
-    Handles all edge cases:
-    - NaN            → falls back to midpoint (0.5); no meaningful magnitude
-    - ±Inf           → clamped to _SCORE_HI / _SCORE_LO respectively
-    - Out-of-range   → clamped to [_SCORE_LO, _SCORE_HI]
-    - Post-rounding boundary drift → re-checked after round()
-    """
-    if math.isnan(raw):
-        return 0.5  # NaN has no meaningful magnitude; use midpoint
-    # ±Inf fall through to clamping below (min/max handles them correctly)
-    clamped = max(_SCORE_LO, min(_SCORE_HI, raw))
-    result = round(clamped, decimals)
-    # Guard against floating-point drift pushing rounded value to a boundary.
-    if result <= 0.0:
-        return _SCORE_LO
-    if result >= 1.0:
-        return _SCORE_HI
-    return result
+# Removed local safe_score - now imported from config.py
 
 
 # ---------------------------------------------------------------------------

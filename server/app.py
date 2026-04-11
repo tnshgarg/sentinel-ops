@@ -33,9 +33,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config import settings
+from config import safe_score, settings
 from env import SentinelOpsEnvironment
-from grader import grade, safe_score as _safe_score
+from grader import grade
 from models import (
     Action,
     ActionType,
@@ -571,7 +571,7 @@ async def grade_endpoint(session_id: str = Query(default=DEFAULT_SESSION_ID)):
 
     result = grade(gt, state)
     # Guarantee score is strictly in (0, 1) before returning — validator requirement
-    result["score"] = _safe_score(result.get("score", 0.5))
+    result["score"] = safe_score(result.get("score", 0.5))
     result["session_id"] = session_id
 
     # Record for /metrics
@@ -622,7 +622,7 @@ async def metrics_endpoint():
         n = stats["count"]
         diff_summary[diff] = {
             "episodes": n,
-            "average_score": _safe_score(stats["total_score"] / n),
+            "average_score": safe_score(stats["total_score"] / n),
             "average_steps": round(stats["total_steps"] / n, 2),
             "average_optimal_steps": round(stats["total_optimal"] / n, 2),
             "efficiency_ratio": round(
@@ -632,9 +632,9 @@ async def metrics_endpoint():
 
     return {
         "total_episodes": total,
-        "average_score": _safe_score(total_score / total),
-        "best_score": _safe_score(max(g["score"] for g in _completed_grades)),
-        "worst_score": _safe_score(min(g["score"] for g in _completed_grades)),
+        "average_score": safe_score(total_score / total),
+        "best_score": safe_score(max(g["score"] for g in _completed_grades)),
+        "worst_score": safe_score(min(g["score"] for g in _completed_grades)),
         "by_difficulty": diff_summary,
         "active_sessions": len(_sessions),
     }
