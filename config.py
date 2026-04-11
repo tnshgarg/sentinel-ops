@@ -107,8 +107,8 @@ class SentinelOpsSettings(BaseSettings):
 # Scoring Utilities
 # ---------------------------------------------------------------------------
 
-SCORE_LO = 0.001
-SCORE_HI = 0.999
+SCORE_LO = 0.05
+SCORE_HI = 0.94
 
 def safe_score(raw: object, decimals: int = 4) -> float:
     """
